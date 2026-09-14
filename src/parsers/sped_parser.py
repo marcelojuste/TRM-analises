@@ -1,4 +1,5 @@
 def parse_sped(path_file):
+    sped_data_batch = []
     with open(path_file, 'r', encoding='latin-1') as file:
         for line in file:
             if line.startswith('|C100|'):
@@ -7,10 +8,9 @@ def parse_sped(path_file):
                 if fields[5] != '00':
                     continue
                 
-                nfe = fields[8]
+                nfe = fields[7]
                 tpNF = fields[1]
 
-                yield (
-                    nfe,
-                    tpNF
-                )
+                sped_data_batch.append((nfe, tpNF))
+    
+    return sped_data_batch
