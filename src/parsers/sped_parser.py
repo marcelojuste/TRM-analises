@@ -6,8 +6,11 @@ def parse_sped(path_file):
 
                 if fields[5] != '00':
                     continue
+                
+                nfe = fields[8]
+                tpNF = fields[1]
 
-                yield {
-                    'id_nfe': fields[8],
-                    'type_nfe': fields[1],
-                }
+                yield (
+                    nfe,
+                    tpNF
+                )
