@@ -1,7 +1,5 @@
 from src.database.connection import get_connection
-from global_var import QUERY_AUDIT_PATH, FILE_ENCODING
+from src.global_var import QUERY_AUDIT_PATH, FILE_ENCODING
 
 def audit_query():
-    df = get_connection().execute(QUERY_AUDIT_PATH.read_text(encoding=FILE_ENCODING)).df()
-
-    return df
+    get_connection().execute(QUERY_AUDIT_PATH.read_text(encoding=FILE_ENCODING)) 

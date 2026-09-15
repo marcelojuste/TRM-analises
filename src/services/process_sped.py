@@ -1,5 +1,5 @@
-from global_var import FILE_ENCODING, INSERT_SPED_IPI_PATH, INSERT_SPED_COFINS_PATH
-from database.connection import get_connection
+from src.global_var import FILE_ENCODING, INSERT_SPED_IPI_PATH, INSERT_SPED_COFINS_PATH
+from src.database.connection import get_connection
 
 def process_sped_file(sped_data_batch: list, type_sped: str):
     if not sped_data_batch:

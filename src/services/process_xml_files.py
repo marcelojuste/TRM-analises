@@ -1,7 +1,7 @@
 from pathlib import Path
-from global_var import FILE_ENCODING, INSERT_NFE_PATH
-from database.connection import get_connection
-from parsers.nfe_parser import parse_nfe_xml
+from src.global_var import FILE_ENCODING, INSERT_NFE_PATH
+from src.database.connection import get_connection
+from src.parsers.nfe_parser import parse_nfe_xml
 
 def process_xml_files(xml_files: list):
     xml_data_batch = []

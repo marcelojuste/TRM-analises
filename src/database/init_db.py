@@ -1,5 +1,5 @@
 import duckdb
-from global_var import DB_PATH, SCHEMA_PATH, FILE_ENCODING
+from src.global_var import DB_PATH, SCHEMA_PATH, FILE_ENCODING
 
 def init_db():
     if not SCHEMA_PATH.exists():
