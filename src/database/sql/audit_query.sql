@@ -227,20 +227,28 @@ audit AS (
 -- 5. RESULTADO FINAL
 -- ============================================================
 
-SELECT
-    access_key,
-    tpNF,
-    invoice_direction,
-    xml_present,
-    sped_ipi_present,
-    sped_cofins_present,
-    audit_status
+COPY (
+    SELECT
+        access_key,
+        tpNF,
+        invoice_direction,
+        xml_present,
+        sped_ipi_present,
+        sped_cofins_present,
+        audit_status
 
-FROM audit
+    FROM audit
 
-WHERE audit_status <> 'OK'
+    WHERE audit_status <> 'OK'
 
-ORDER BY
-    tpNF DESC,
-    audit_status,
-    access_key;
+    ORDER BY
+        tpNF DESC,
+        audit_status,
+        access_key
+) 
+
+TO 'src/outputs/relatorio_auditoria.csv' (
+    HEADER TRUE, 
+    DELIMITER ';', 
+    ENCODING 'UTF-8'
+);
