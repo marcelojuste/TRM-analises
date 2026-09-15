@@ -71,3 +71,6 @@ logs/*.json
 Thumbs.db
 desktop.ini
 .DS_Store
+
+#db
+**/trm_analises.db
