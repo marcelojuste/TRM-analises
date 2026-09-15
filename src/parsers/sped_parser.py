@@ -8,7 +8,7 @@ def parse_sped(path_file):
                 if fields[5] != '00':
                     continue
                 
-                nfe = fields[7]
+                nfe = fields[8]
                 tpNF = fields[1]
 
                 sped_data_batch.append((nfe, tpNF))
