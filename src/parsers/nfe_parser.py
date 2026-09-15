@@ -1,9 +1,9 @@
 import re
-from lxml import etree
+import lxml
 
 
 def parse_nfe_xml(file_path: str):
-    tree = etree.parse(file_path)
+    tree = lxml.etree.parse(file_path)
 
     id_nf_list = tree.xpath("//*[local-name()='infNFe']/@Id")
     type_nf_list = tree.xpath("//*[local-name()='tpNF']/text()")

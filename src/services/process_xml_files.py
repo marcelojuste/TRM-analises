@@ -1,4 +1,7 @@
 from pathlib import Path
+from global_var import FILE_ENCODING, INSERT_NFE_PATH
+from database.connection import get_connection
+from parsers.nfe_parser import parse_nfe_xml
 
 def process_xml_files(xml_files: list):
     xml_data_batch = []
@@ -7,18 +10,18 @@ def process_xml_files(xml_files: list):
         path_xml = Path(xml_file)
 
         if not path_xml.exists() or not path_xml.is_file():
-            return Error(f"Arquivo XML inválido: {xml_file} --process_xml_files.py")
+            return print(f"Arquivo XML inválido: {xml_file} --process_xml_files.py")
         
-        nfe = parse_nfe_xml(xml_file: tuple)
-        data_batch.append(nfe)
+        nfe = parse_nfe_xml(str(path_xml))
+        xml_data_batch.append(nfe)
 
-    if not data_batch:
-        return Error("Nenhum arquivo XML válido encontrado --process_xml_files.py")
+    if not xml_data_batch:
+        return print(f"Nenhum arquivo XML válido encontrado --process_xml_files.py")
     
-    if not SQL_INSERT_NFE.exists():
-        return Error(f"Arquivo SQL de inserção não encontrado: {SQL_INSERT_NFE} --process_xml_files.py")
+    if not INSERT_NFE_PATH.exists():
+        return print(f"Arquivo SQL de inserção não encontrado: {INSERT_NFE_PATH} --process_xml_files.py")
 
-    query_sql = config.SQL_INSERT_NFE.read_text(encoding=config.FILE_ENCODING)
+    query_sql = INSERT_NFE_PATH.read_text(encoding=FILE_ENCODING)
 
-    get_connection().executemany(query_sql, data_batch)
+    get_connection().executemany(query_sql, xml_data_batch)
 
