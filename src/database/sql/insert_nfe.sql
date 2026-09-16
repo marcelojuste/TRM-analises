@@ -1,3 +1,0 @@
-INSERT INTO nota_xml (nfe, tpNF)
-VALUES (?, ?)
-ON CONFLICT (nfe) DO UPDATE SET tpNF = EXCLUDED.tpNF;
