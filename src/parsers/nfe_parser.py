@@ -1,28 +1,36 @@
 import re
-from lxml import etree
+import xml.etree.ElementTree as ET
+from typing import Tuple
 
+def parse_nfe_xml(file_path: str) -> Tuple[str, int]:
+    nfe_key: str | None = None
+    tp_nf: int | None = None
 
-def parse_nfe_xml(file_path: str):
-    tree = etree.parse(str(file_path))
+    context = ET.iterparse(file_path, events=("end",))
 
-    id_nf_list = tree.xpath("//*[local-name()='infNFe']/@Id")
-    type_nf_list = tree.xpath("//*[local-name()='tpNF']/text()")
+    for _event, elem in context:
+        tag_name = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
 
-    if not id_nf_list or not type_nf_list:
+        if tag_name == "infNFe" and nfe_key is None:
+            raw_id = elem.attrib.get("Id", "")
+            cleaned_id = re.sub(r"\D", "", raw_id)
+            if cleaned_id:
+                nfe_key = cleaned_id
+
+        elif tag_name == "tpNF" and tp_nf is None:
+            if elem.text and elem.text.strip().isdigit():
+                tp_nf = int(elem.text.strip())
+
+        elem.clear()
+
+    if not nfe_key or tp_nf is None:
         raise ValueError(
-            f"Erro ao extrair informações do XML da NFe no arquivo: {file_path} --xml_parser.py"
+            f"Erro ao extrair informações do XML da NFe no arquivo: {file_path} -- nfe_parser.py"
         )
 
-    nfe = re.sub(r"\D", "", id_nf_list[0])
-
-    if len(nfe) != 44:
+    if len(nfe_key) != 44:
         raise ValueError(
-            f"Chave de acesso inválida ({len(nfe)} dígitos) no arquivo: {file_path} --xml_parser.py"
+            f"Chave de acesso inválida ({len(nfe_key)} dígitos) no arquivo: {file_path} -- nfe_parser.py"
         )
 
-    tpNF = int(type_nf_list[0])
-
-    return (
-        nfe,
-        tpNF
-    )
+    return nfe_key, tp_nf

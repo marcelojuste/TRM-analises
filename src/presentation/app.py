@@ -2,11 +2,12 @@ import os
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
-from services.get_xml import get_xml_files_from_directory
-from services.process_xml_files import process_xml_files
-from parsers.sped_parser import parse_sped
-from services.process_sped import process_sped_file
-from services.audit import audit_query
+# Correção dos caminhos de importação incluindo a raiz 'src'
+from src.services.get_xml import get_xml_files_from_directory
+from src.services.process_xml_files import process_xml_files
+from src.parsers.sped_parser import parse_sped
+from src.services.process_sped import process_sped_file
+from src.services.audit import audit_query
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
@@ -134,23 +135,22 @@ class AuditApp(ctk.CTk):
             self.btn_compare.configure(state="disabled", text="Processando...")
             self.update()
 
+            # 1. Leitura e processamento de XMLs
             xml_files = get_xml_files_from_directory(self.paths["XMLs"])
-            if isinstance(xml_files, str):
-                raise ValueError(xml_files)
             process_xml_files(xml_files)
 
+            # 2. Parsing e processamento do SPED COFINS
             sped_cofins_data = parse_sped(self.paths["SPED Cofins"])
-            res_cofins = process_sped_file(sped_cofins_data, "COFINS")
-            if isinstance(res_cofins, str):
-                raise ValueError(res_cofins)
+            process_sped_file(sped_cofins_data, "COFINS")
 
+            # 3. Parsing e processamento do SPED IPI
             sped_ipi_data = parse_sped(self.paths["SPED IPI"])
-            res_ipi = process_sped_file(sped_ipi_data, "ICMS")
-            if isinstance(res_ipi, str):
-                raise ValueError(res_ipi)
+            process_sped_file(sped_ipi_data, "ICMS")
 
+            # 4. Execução da Query de Auditoria
             df = audit_query()
 
+            # 5. Exportação dos Resultados
             output_file = filedialog.asksaveasfilename(
                 defaultextension=".csv",
                 filetypes=[("Arquivo CSV", "*.csv"), ("Excel", "*.xlsx")],
@@ -171,3 +171,7 @@ class AuditApp(ctk.CTk):
             messagebox.showerror("Erro de Processamento", f"Ocorreu um erro durante a auditoria:\n\n{str(e)}")
         finally:
             self.btn_compare.configure(state="normal", text="Comparar Arquivos")
+
+if __name__ == "__main__":
+    app = AuditApp()
+    app.mainloop()
