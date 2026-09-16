@@ -14,18 +14,14 @@ class DisposableAuditDatabase:
         self._conn = None
 
     def __enter__(self) -> duckdb.DuckDBPyConnection:
-        # 1. Garante que qualquer resíduo anterior na pasta temp_files seja removido
         self._purge_temp_dir()
         PATHS.temp_files_dir.mkdir(parents=True, exist_ok=True)
 
-        # 2. Conecta ao DuckDB dentro da pasta limpa
         self._conn = duckdb.connect(database=str(self.db_path))
 
-        # 3. Limites de hardware (Windows 7 / 4 GB RAM)
         self._conn.execute(f"SET memory_limit = '{self.memory_limit}';")
         self._conn.execute("SET threads = 2;")
 
-        # 4. Executa DDL do schema se existir
         if PATHS.schema_path.exists():
             try:
                 schema_sql = PATHS.schema_path.read_text(encoding="utf-8")
@@ -59,4 +55,3 @@ class DisposableAuditDatabase:
                     os.remove(item)
             except OSError:
                 pass
-            
