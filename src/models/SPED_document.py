@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from src.models.fiscal_document import FiscalDocument
+from src.models.Fiscal_document import FiscalDocument
 
 @dataclass(slots=True)
 class SPEDDocument(FiscalDocument):

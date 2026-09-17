@@ -1,8 +1,5 @@
-from typing import List, Tuple, Optional  # 1. Adicionado Optional aqui
+from typing import List, Tuple, Optional
 import duckdb
-
-from src.database.database import DisposableAuditDatabase
-
 
 class FiscalRepository:
     def __init__(self, conn: Optional[duckdb.DuckDBPyConnection] = None, batch_size: int = 1000):
@@ -25,10 +22,6 @@ class FiscalRepository:
 
     def _flush_xmls(self) -> None:
         if self.xml_batch and self._conn:
-        if not self._conn:
-            ConnectionError("Conexão com o banco não encontrada")
-
-        if self.xml_batch:
             self._conn.executemany(
                 "INSERT INTO xml_documents VALUES (?, ?)", 
                 self.xml_batch
