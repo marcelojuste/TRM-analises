@@ -15,7 +15,7 @@ class FiscalRepository:
     def _flush_xmls(self) -> None:
         if not self._conn:
             ConnectionError("Conexão com o banco não encontrada")
-            
+
         if self.xml_batch:
             self._conn.executemany(
                 "INSERT INTO xml_documents VALUES (?, ?)", 
@@ -34,6 +34,9 @@ class FiscalRepository:
             )
             self.sped_batch.clear()
 
-    def flush_batchs(self) -> None:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self._flush_xmls()
         self._flush_speds()
