@@ -5,7 +5,6 @@ from typing import Optional
 
 from src.app_paths import PATHS
 
-
 class DisposableAuditDatabase:
     def __init__(self, enterprise: str, memory_limit: str = "1GB"):
         self.enterprise = enterprise
