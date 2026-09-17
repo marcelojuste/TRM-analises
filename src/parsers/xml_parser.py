@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
 from src.models.Fiscal_document import FiscalDocument
 
@@ -23,7 +23,7 @@ class XmlParser:
     def parse(cls, file_path: Path | str) -> Iterator[FiscalDocument]:
         context = ET.iterparse(file_path, events=("start", "end"))
         context = iter(context)
-        
+
         try:
             _, root = next(context)
         except StopIteration:
@@ -31,6 +31,28 @@ class XmlParser:
 
         doc_data = cls._get_empty_doc_data()
         in_emit = False
+
+        tag_handlers: dict[str, Callable[[ET.Element, dict], None]] = {
+            "infNFe": lambda elem, data: data.update(
+                {"access_key": elem.attrib.get("Id", "").replace("NFe", "")}
+            ),
+            "tpAmb": lambda elem, data: data.update(
+                {"tp_amb": elem.text.strip() if elem.text else None}
+            ),
+            "dhEmi": lambda elem, data: data.update(
+                {"emission_date": elem.text[:10] if elem.text else ""}
+            ),
+            "dEmi": lambda elem, data: data.update(
+                {"emission_date": elem.text[:10] if elem.text else ""}
+            ),
+            "vNF": lambda elem, data: data.update(
+                {
+                    "total_value": (
+                        cls._to_centavos(elem.text.strip()) if elem.text else 0
+                    )
+                }
+            ),
+        }
 
         for event, elem in context:
             tag_name = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
@@ -40,24 +62,14 @@ class XmlParser:
                     in_emit = True
 
             elif event == "end":
-                if tag_name == "infNFe":
-                    doc_data["access_key"] = elem.attrib.get("Id", "").replace("NFe", "")
-
-                elif tag_name == "tpAmb":
-                    doc_data["tp_amb"] = elem.text.strip() if elem.text else None
-
-                elif tag_name in ("dhEmi", "dEmi"):
-                    doc_data["emission_date"] = elem.text[:10] if elem.text else ""
-
-                elif tag_name == "emit":
-                    in_emit = False
+                if handler := tag_handlers.get(tag_name):
+                    handler(elem, doc_data)
 
                 elif tag_name == "CNPJ" and in_emit:
                     doc_data["cnpj_emit"] = elem.text.strip() if elem.text else ""
 
-                elif tag_name == "vNF":
-                    if elem.text:
-                        doc_data["total_value"] = cls._to_centavos(elem.text.strip())
+                elif tag_name == "emit":
+                    in_emit = False
 
                 elif tag_name == "NFe":
                     key = doc_data["access_key"]
@@ -69,11 +81,10 @@ class XmlParser:
                             total_value=doc_data["total_value"],
                             emission_date=doc_data["emission_date"],
                             nf_type=1,
-                            situation_code="00"
+                            situation_code="00",
                         )
 
                     doc_data = cls._get_empty_doc_data()
-
                     root.clear()
 
                 elem.clear()
