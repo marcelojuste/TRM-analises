@@ -1,92 +1,104 @@
 import xml.etree.ElementTree as ET
-from typing import Iterator
 from pathlib import Path
+from typing import Iterator
 
 from src.models.fiscal_document import FiscalDocument
-from src.repositories.fiscal_repository import FISCAL_REPOSITORY
 
 class XmlParser:
 
+    @staticmethod
     def _to_centavos(value_str: str) -> int:
         if not value_str:
             return 0
         return int(round(float(value_str) * 100))
 
-    def _get_xml(directory_path: Path) -> list:
+    @staticmethod
+    def get_xml_files(directory_path: Path) -> Iterator[Path]:
         if not directory_path.exists() or not directory_path.is_dir():
-            return FileNotFoundError(f"Diretorio inválido: {directory_path}")
+            raise FileNotFoundError(f"Diretório inválido: {directory_path}")
 
-        pattern = "*xml"
-        xml_files = list(directory_path.rglob(pattern))
+        # CORREÇÃO: Removemos o list() em volta do rglob. 
+        # O rglob retorna um gerador, que não consome memória RAM iterando pastas enormes.
+        return directory_path.rglob("*.xml")
 
-        if not xml_files:
-            return FileNotFoundError(f"Nenhum arquivo XML encontrado no diretório: {directory_path}")
+    @classmethod
+    def parse(cls, file_path: Path | str) -> Iterator[FiscalDocument]:
+        # CORREÇÃO: Adicionamos o evento "start" para sabermos quando entramos em uma tag
+        context = ET.iterparse(file_path, events=("start", "end"))
+        context = iter(context)
+        
+        try:
+            # Pegamos o elemento raiz (root) do XML. Ele é a chave para não vazar memória.
+            _, root = next(context)
+        except StopIteration:
+            return # Arquivo XML vazio
 
-        return xml_files
+        doc_data = cls._get_empty_doc_data()
+        in_emit = False # Movemos a flag para fora do dicionário para controle de estado
 
-    def parse(file_path: str) -> Iterator[FiscalDocument]:
-        context = ET.iterparse(file_path, events=("end",))
-        _, root = next(context)
+        for event, elem in context:
+            # Remove namespaces (ex: {http://www.portalfiscal...}infNFe -> infNFe)
+            tag_name = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
 
-        doc_data = {
+            # EVENTO START: A tag abriu (ex: <emit>)
+            if event == "start":
+                if tag_name == "emit":
+                    in_emit = True # Entramos no bloco do emitente!
+                    
+            # EVENTO END: A tag fechou (ex: </emit> ou </CNPJ>)
+            # É apenas no fechamento que temos garantia de que o elem.text e elem.attrib foram lidos inteiros
+            elif event == "end":
+                if tag_name == "infNFe":
+                    doc_data["access_key"] = elem.attrib.get("Id", "").replace("NFe", "")
+
+                elif tag_name == "tpAmb":
+                    doc_data["tp_amb"] = elem.text.strip() if elem.text else None
+
+                elif tag_name in ("dhEmi", "dEmi"): # in permite checar NFe 3.10 e 4.00
+                    doc_data["emission_date"] = elem.text[:10] if elem.text else ""
+
+                elif tag_name == "emit":
+                    in_emit = False # Saímos do bloco do emitente
+
+                elif tag_name == "CNPJ" and in_emit:
+                    doc_data["cnpj_emit"] = elem.text.strip() if elem.text else ""
+
+                elif tag_name == "vNF":
+                    if elem.text:
+                        doc_data["total_value"] = cls._to_centavos(elem.text.strip())
+
+                elif tag_name == "NFe":
+                    key = doc_data["access_key"]
+
+                    # Valida apenas ambiente de produção (1) com chave válida de 44 dígitos
+                    if doc_data["tp_amb"] == "1" and key and len(key) == 44:
+                        yield FiscalDocument(
+                            access_key=key,
+                            cnpj_emit=doc_data["cnpj_emit"],
+                            total_value=doc_data["total_value"],
+                            emission_date=doc_data["emission_date"],
+                            nf_type=1,
+                            situation_code="00"
+                        )
+
+                    # Reseta o dicionário para a próxima nota (se for um arquivo de lote nfeProc)
+                    doc_data = cls._get_empty_doc_data()
+
+                    # CORREÇÃO VITAL DE MEMÓRIA:
+                    # Ao fechar a tag <NFe>, nós limpamos todos os filhos pendurados no root
+                    # Isso garante que a memória seja esvaziada a cada nota processada
+                    root.clear()
+
+                # Limpa a "casca" do elemento atual para poupar memória da iteração
+                elem.clear()
+
+    @staticmethod
+    def _get_empty_doc_data() -> dict:
+        # Extraído para um método para manter o código limpo ao resetar
+        return {
             "access_key": None,
             "tp_amb": None,
             "emission_date": "",
-            "exit_date": "",
-            "recipient_cnpj": "",
             "total_value": 0,
-            "in_dest": False,
+            "cnpj_emit": "",
         }
-
-        handlers = {
-            "infNFe": lambda e: doc_data.update(
-                access_key=e.attrib.get("Id", "").replace("NFe", "")
-            ),
-            "tpAmb": lambda e: doc_data.update(tp_amb=e.text.strip() if e.text else None),
-            "dhEmi": lambda e: doc_data.update(
-                emission_date=e.text[:10] if e.text else ""
-            ),
-            "dhSaiEnt": lambda e: doc_data.update(
-                exit_date=e.text[:10] if e.text else ""
-            ),
-            "dSaiEnt": lambda e: doc_data.update(
-                exit_date=e.text[:10] if e.text else ""
-            ),
-            "dest": lambda e: doc_data.update(in_dest=True),
-            "CNPJ": lambda e: doc_data.update(
-                recipient_cnpj=e.text.strip(), in_dest=False
-            ) if doc_data["in_dest"] and e.text else None,
-            "vNF": lambda e: doc_data.update(
-                total_value=cls._to_cents(e.text.strip())
-            ) if e.text else None,
-        }
-
-        for _event, elem in context:
-            tag_name = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
-
-            if handler := handlers.get(tag_name):
-                handler(elem)
-
-            elif tag_name == "NFe":
-                key = doc_data["access_key"]
-                
-                if doc_data["tp_amb"] == "1" and key:
-                    if len(key) != 44:
-                        raise ValueError(f"Chave de acesso inválida ({len(key)} dígitos): {file_path}")
-
-                    xml = FiscalDocument(
-                        access_key=key,
-                        total_value=doc_data["total_value"],
-                        emission_date=doc_data["emission_date"],
-                        recipient_cnpj=doc_data["recipient_cnpj"],
-                    )
-
-                    FISCAL_REPOSITORY.xml_batch.append(
-                        xml.to_tuple()
-                    )
-
-                doc_data = {k: 0 if k == "total_value" else ("" if "date" in k or "cnpj" in k else None) for k in doc_data}
-                doc_data["in_dest"] = False
-
-                elem.clear()
-                root.clear()
