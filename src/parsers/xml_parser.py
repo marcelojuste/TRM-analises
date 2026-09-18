@@ -1,16 +1,11 @@
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from pathlib import Path
-from typing import Callable, Iterator
+from typing import Iterator
 
-from src.models.Fiscal_document import FiscalDocument
+from src.models.fiscal_document import FiscalDocument
 
 class XmlParser:
-
-    @staticmethod
-    def _to_centavos(value_str: str) -> int:
-        if not value_str:
-            return 0
-        return int(round(float(value_str) * 100))
 
     @staticmethod
     def get_xml_files(directory_path: Path) -> Iterator[Path]:
@@ -20,81 +15,43 @@ class XmlParser:
         return directory_path.rglob("*.xml")
 
     @classmethod
-    def parse(cls, file_path: Path | str) -> Iterator[FiscalDocument]:
-        context = ET.iterparse(file_path, events=("start", "end"))
-        context = iter(context)
+    def parse_xml(xml_path: str) -> FiscalDocument | None:
+        context = ET.iterparse(xml_path, events=('end',))
+        _, root = next(context)
 
-        try:
-            _, root = next(context)
-        except StopIteration:
-            return
-
-        doc_data = cls._get_empty_doc_data()
-        in_emit = False
-
-        tag_handlers: dict[str, Callable[[ET.Element, dict], None]] = {
-            "infNFe": lambda elem, data: data.update(
-                {"access_key": elem.attrib.get("Id", "").replace("NFe", "")}
-            ),
-            "tpAmb": lambda elem, data: data.update(
-                {"tp_amb": elem.text.strip() if elem.text else None}
-            ),
-            "dhEmi": lambda elem, data: data.update(
-                {"emission_date": elem.text[:10] if elem.text else ""}
-            ),
-            "dEmi": lambda elem, data: data.update(
-                {"emission_date": elem.text[:10] if elem.text else ""}
-            ),
-            "vNF": lambda elem, data: data.update(
-                {
-                    "total_value": (
-                        cls._to_centavos(elem.text.strip()) if elem.text else 0
-                    )
-                }
-            ),
-        }
-
+        doc_data = {}
         for event, elem in context:
-            tag_name = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
-
-            if event == "start":
-                if tag_name == "emit":
-                    in_emit = True
-
-            elif event == "end":
-                if handler := tag_handlers.get(tag_name):
-                    handler(elem, doc_data)
-
-                elif tag_name == "CNPJ" and in_emit:
-                    doc_data["cnpj_emit"] = elem.text.strip() if elem.text else ""
-
-                elif tag_name == "emit":
-                    in_emit = False
-
-                elif tag_name == "NFe":
-                    key = doc_data["access_key"]
-
-                    if doc_data["tp_amb"] == "1" and key and len(key) == 44:
-                        yield FiscalDocument(
-                            access_key=key,
-                            cnpj_emit=doc_data["cnpj_emit"],
-                            total_value=doc_data["total_value"],
-                            emission_date=doc_data["emission_date"],
-                            nf_type=1,
-                            situation_code="00",
-                        )
-
-                    doc_data = cls._get_empty_doc_data()
+            tag = elem.tag.split('}')[-1]
+            
+            if tag == 'tpNF':
+                if elem.text != '1':
                     root.clear()
+                    return None
+            elif tag == 'infNFe':
+                doc_data['access_key'] = elem.attrib.get('Id', '').replace('NFe', '')
+            elif tag == 'CNPJ' and 'cnpj_emit' not in doc_data:
+                doc_data['cnpj_emit'] = elem.text
+            elif tag == 'dhEmi' or tag == 'dEmi':
+                raw_date = elem.text.split('T')[0]
+                doc_data['emission_date'] = raw_date
+            elif tag == 'mod':
+                doc_data['nf_type'] = int(elem.text)
+            elif tag == 'vNF':
+                doc_data['total_value'] = int(round(float(elem.text) * 100))
+            elif tag == 'cSitNFe':
+                doc_data['situation_code'] = elem.text
 
-                elem.clear()
+            elem.clear()
+        root.clear()
 
-    @staticmethod
-    def _get_empty_doc_data() -> dict:
-        return {
-            "access_key": None,
-            "tp_amb": None,
-            "emission_date": "",
-            "total_value": 0,
-            "cnpj_emit": "",
-        }
+        if 'access_key' in doc_data:
+            return FiscalDocument(
+                access_key=doc_data['access_key'],
+                cnpj_emit=doc_data['cnpj_emit'],
+                total_value=doc_data.get('total_value', 0),
+                emission_date=doc_data['emission_date'],
+                nf_type=doc_data['nf_type'],
+                situation_code=doc_data.get('situation_code', '00')
+            )
+        
+        return None

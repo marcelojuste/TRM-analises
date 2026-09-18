@@ -14,16 +14,16 @@ class FiscalRepository:
         if len(self.xml_batch) >= self.batch_size:
             self._flush_xmls()
 
-    def add_sped(self, sped_tuple: tuple) -> None:
-        self.sped_batch.append(sped_tuple)
+    def add_sped(self, sped_file: list[tuple]) -> None:
+        self.sped_batch.append(sped_file)
 
-        if len(self.sped_batch) >= self.sped_batch:
+        if len(self.sped_batch) >= self.batch_size:
             self._flush_speds()
 
     def _flush_xmls(self) -> None:
         if self.xml_batch and self._conn:
             self._conn.executemany(
-                "INSERT INTO xml_documents VALUES (?, ?)", 
+                "INSERT INTO xml_documents VALUES (?, ?, ?, ?, ?, ?)", 
                 self.xml_batch
             )
             self.xml_batch.clear()
@@ -31,7 +31,7 @@ class FiscalRepository:
     def _flush_speds(self) -> None:
         if self.sped_batch and self._conn:
             self._conn.executemany(
-                "INSERT INTO sped_documents Values(?, ?, ?, ?)",
+                "INSERT INTO sped_documents Values(?, ?, ?, ?, ?, ?, ?)",
                 self.sped_batch
             )
             self.sped_batch.clear()
