@@ -28,7 +28,6 @@ def mock_paths(tmp_path, monkeypatch):
 
 
 def test_purge_on_enter_removes_pre_existing_garbage(mock_paths):
-    """Garante que qualquer arquivo ou subpasta pré-existente em temp_files é apagado ao entrar no 'with'."""
     old_file = mock_paths.temp_files_dir / "lixo_antigo.tmp"
     old_file.write_text("conteúdo residual")
 
@@ -47,7 +46,6 @@ def test_purge_on_enter_removes_pre_existing_garbage(mock_paths):
 
 
 def test_purge_on_exit_removes_all_application_temp_files(mock_paths):
-    """Garante que TUDO o que for criado na sessão (banco, .wal, XMLs extraídos, subpastas) é apagado ao sair do 'with'."""
     enterprise = "empresa_teste"
     db_path = mock_paths.get_enterprise_db_path(enterprise)
 
@@ -72,7 +70,6 @@ def test_purge_on_exit_removes_all_application_temp_files(mock_paths):
 
 
 def test_schema_applied_and_purged_on_completion(mock_paths):
-    """Valida se o schema.sql é executado no banco temporário e limpo corretamente após a execução."""
     mock_paths.schema_path.write_text(
         "CREATE TABLE xml_documents (chave_acesso VARCHAR PRIMARY KEY, valor_centavos INT);",
         encoding="utf-8",
@@ -91,7 +88,6 @@ def test_schema_applied_and_purged_on_completion(mock_paths):
 
 
 def test_purge_on_schema_error(mock_paths):
-    """Garante que mesmo que o schema.sql falhe com erro de sintaxe, o banco é fechado e temp_files é limpo."""
     mock_paths.schema_path.write_text("SINTAXE_INVALIDA_DE_SQL;", encoding="utf-8")
 
     enterprise = "empresa_erro"

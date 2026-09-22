@@ -32,6 +32,11 @@ class DisposableAuditDatabase:
                 schema_sql = PATHS.schema_path.read_text(encoding="utf-8")
                 self._conn.execute(schema_sql)
 
+        except (duckdb.ParserException, duckdb.Error) as e:
+            self._close_connection()
+            self._purge_temp_dir()
+            raise RuntimeError(f"Erro ao carregar o schema do banco de dados: {e}") from e
+
         except Exception as e:
             self._close_connection()
             self._purge_temp_dir()
