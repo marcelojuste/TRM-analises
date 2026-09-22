@@ -1,11 +1,20 @@
 import xml.etree.ElementTree as ET
-from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 
 from src.models.fiscal_document import FiscalDocument
 
+
 class XmlParser:
+
+    @staticmethod
+    def _to_centavos(val: str | None) -> int:
+        if not val:
+            return 0
+        try:
+            return int(round(float(val) * 100))
+        except (ValueError, TypeError):
+            return 0
 
     @staticmethod
     def get_xml_files(directory_path: Path) -> Iterator[Path]:
@@ -15,43 +24,61 @@ class XmlParser:
         return directory_path.rglob("*.xml")
 
     @classmethod
-    def parse_xml(xml_path: str) -> FiscalDocument | None:
-        context = ET.iterparse(xml_path, events=('end',))
-        _, root = next(context)
+    def parse_xml(cls, xml_path: Path | str) -> Iterator[FiscalDocument]:
+        xml_path = Path(xml_path)
 
-        doc_data = {}
-        for event, elem in context:
-            tag = elem.tag.split('}')[-1]
-            
-            if tag == 'tpNF':
-                if elem.text != '1':
-                    root.clear()
-                    return None
-            elif tag == 'infNFe':
-                doc_data['access_key'] = elem.attrib.get('Id', '').replace('NFe', '')
-            elif tag == 'CNPJ' and 'cnpj_emit' not in doc_data:
-                doc_data['cnpj_emit'] = elem.text
-            elif tag == 'dhEmi' or tag == 'dEmi':
-                raw_date = elem.text.split('T')[0]
-                doc_data['emission_date'] = raw_date
-            elif tag == 'mod':
-                doc_data['nf_type'] = int(elem.text)
-            elif tag == 'vNF':
-                doc_data['total_value'] = int(round(float(elem.text) * 100))
-            elif tag == 'cSitNFe':
-                doc_data['situation_code'] = elem.text
+        if not xml_path.exists() or xml_path.stat().st_size == 0:
+            return
 
-            elem.clear()
-        root.clear()
+        try:
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+        except ET.ParseError:
+            return
 
-        if 'access_key' in doc_data:
-            return FiscalDocument(
-                access_key=doc_data['access_key'],
-                cnpj_emit=doc_data['cnpj_emit'],
-                total_value=doc_data.get('total_value', 0),
-                emission_date=doc_data['emission_date'],
-                nf_type=doc_data['nf_type'],
-                situation_code=doc_data.get('situation_code', '00')
-            )
+        def find_text(elem, tag_name: str) -> str:
+            for node in elem.iter():
+                if node.tag.split("}")[-1] == tag_name:
+                    return node.text or ""
+            return ""
+
+        def find_elem(elem, tag_name: str):
+            for node in elem.iter():
+                if node.tag.split("}")[-1] == tag_name:
+                    return node
+            return None
+
+        inf_nfe = find_elem(root, "infNFe")
+        if inf_nfe is None:
+            return
+
+        tp_amb = find_text(inf_nfe, "tpAmb")
+        if tp_amb != "1":
+            return
+
+        raw_id = inf_nfe.attrib.get("Id", "")
+        access_key = raw_id.replace("NFe", "").strip()
+        if len(access_key) != 44:
+            return
+
+        cnpj_emit = find_text(inf_nfe, "CNPJ")
         
-        return None
+        raw_date = find_text(inf_nfe, "dhEmi") or find_text(inf_nfe, "dEmi")
+        emission_date = raw_date.split("T")[0] if raw_date else ""
+
+        mod_val = find_text(inf_nfe, "mod")
+        nf_type = int(mod_val) if mod_val.isdigit() else 1
+
+        v_nf = find_text(inf_nfe, "vNF")
+        total_value = cls._to_centavos(v_nf)
+
+        situation_code = find_text(inf_nfe, "cSitNFe") or "00"
+
+        yield FiscalDocument(
+            access_key=access_key,
+            cnpj_emit=cnpj_emit,
+            total_value=total_value,
+            emission_date=emission_date,
+            nf_type=nf_type,
+            situation_code=situation_code,
+        )

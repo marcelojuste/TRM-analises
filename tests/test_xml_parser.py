@@ -16,7 +16,6 @@ def test_to_centavos_valores_vazios():
 
 
 def test_get_xml_files_sucesso(tmp_path: Path):
-    # Cria estrutura de pastas e arquivos XML temporários
     (tmp_path / "nota1.xml").touch()
     (tmp_path / "nota2.xml").touch()
     (tmp_path / "texto.txt").touch()
@@ -56,7 +55,7 @@ def test_parse_nfe_valida_producao(tmp_path: Path):
     xml_file = tmp_path / "nfe_valida.xml"
     xml_file.write_text(xml_content, encoding="utf-8")
 
-    docs = list(XmlParser.parse(xml_file))
+    docs = list(XmlParser.parse_xml(xml_file))
 
     assert len(docs) == 1
     doc = docs[0]
@@ -82,7 +81,7 @@ def test_parse_ignora_homologacao(tmp_path: Path):
     xml_file = tmp_path / "nfe_homologacao.xml"
     xml_file.write_text(xml_content, encoding="utf-8")
 
-    docs = list(XmlParser.parse(xml_file))
+    docs = list(XmlParser.parse_xml(xml_file))
     assert len(docs) == 0
 
 
@@ -99,7 +98,7 @@ def test_parse_ignora_chave_tamanho_invalido(tmp_path: Path):
     xml_file = tmp_path / "nfe_chave_curta.xml"
     xml_file.write_text(xml_content, encoding="utf-8")
 
-    docs = list(XmlParser.parse(xml_file))
+    docs = list(XmlParser.parse_xml(xml_file))
     assert len(docs) == 0
 
 
@@ -107,5 +106,5 @@ def test_parse_arquivo_vazio(tmp_path: Path):
     xml_file = tmp_path / "vazio.xml"
     xml_file.write_text("", encoding="utf-8")
 
-    docs = list(XmlParser.parse(xml_file))
+    docs = list(XmlParser.parse_xml(xml_file))
     assert len(docs) == 0
