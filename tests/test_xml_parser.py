@@ -1,10 +1,8 @@
 import pytest
 from pathlib import Path
-from src.models.Fiscal_document import FiscalDocument
+from src.models.fiscal_document import FiscalDocument
 from src.parsers.xml_parser import XmlParser
 
-
-# --- Testes de Métodos Auxiliares ---
 
 def test_to_centavos_conversoes_validas():
     assert XmlParser._to_centavos("150.50") == 15050
@@ -16,8 +14,6 @@ def test_to_centavos_valores_vazios():
     assert XmlParser._to_centavos("") == 0
     assert XmlParser._to_centavos(None) == 0
 
-
-# --- Testes de Busca de Arquivos ---
 
 def test_get_xml_files_sucesso(tmp_path: Path):
     # Cria estrutura de pastas e arquivos XML temporários
@@ -35,8 +31,6 @@ def test_get_xml_files_diretorio_invalido():
     with pytest.raises(FileNotFoundError, match="Diretório inválido"):
         list(XmlParser.get_xml_files(path_inexistente))
 
-
-# --- Testes do Parser de XML ---
 
 def test_parse_nfe_valida_producao(tmp_path: Path):
     xml_content = """<?xml version="1.0" encoding="UTF-8"?>
