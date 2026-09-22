@@ -92,7 +92,7 @@ def test_purge_on_schema_error(mock_paths):
 
     enterprise = "error_company"
 
-    with pytest.raises(RuntimeError, match="Error loading database schema"):
+    with pytest.raises(RuntimeError, match="Erro ao carregar o schema do banco de dados"):
         with DisposableAuditDatabase(enterprise):
             pass
 
