@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-@dataclass(slots=True)
+@dataclass
 class FiscalDocument:
     access_key: str
     cnpj_emit: str

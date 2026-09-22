@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from src.models.fiscal_document import FiscalDocument
 
-@dataclass(slots=True)
+@dataclass
 class SpedDocument(FiscalDocument):
     sped_type: str
 
