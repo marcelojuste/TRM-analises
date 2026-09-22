@@ -27,4 +27,4 @@ jobs:
 
     - name: Rodar testes
       run: |
-        pytest
+        PYTHONPATH=. pytest
