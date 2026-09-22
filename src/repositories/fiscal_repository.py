@@ -15,10 +15,7 @@ class FiscalRepository:
             self._flush_xmls()
 
     def add_sped(self, sped_file: list[tuple]) -> None:
-        self.sped_batch.append(sped_file)
-
-        if len(self.sped_batch) >= self.batch_size:
-            self._flush_speds()
+        self.sped_batch = sped_file
 
     def _flush_xmls(self) -> None:
         if self.xml_batch and self._conn:

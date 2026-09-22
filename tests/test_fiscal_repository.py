@@ -33,7 +33,6 @@ def test_add_xml_acumula_em_memoria_sem_descarregar(db_conn):
     repo.add_xml(("CHAVE_1", 1000))
     repo.add_xml(("CHAVE_2", 2000))
 
-    # Garante que os dados ainda estão na lista e nada foi para o banco
     assert len(repo.xml_batch) == 2
     
     count = db_conn.execute("SELECT COUNT(*) FROM xml_documents").fetchone()[0]
@@ -46,10 +45,9 @@ def test_add_xml_descarrega_ao_atingir_batch_size(db_conn):
     repo.add_xml(("CHAVE_1", 1000))
     assert len(repo.xml_batch) == 1
 
-    # Ao adicionar o 2º item, atinge o limite do lote e faz o flush automático
     repo.add_xml(("CHAVE_2", 2000))
 
-    assert len(repo.xml_batch) == 0  # Lista limpa em RAM
+    assert len(repo.xml_batch) == 0 
 
     count = db_conn.execute("SELECT COUNT(*) FROM xml_documents").fetchone()[0]
     assert count == 2
