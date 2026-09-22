@@ -4,34 +4,34 @@ from src.models.fiscal_document import FiscalDocument
 from src.parsers.xml_parser import XmlParser
 
 
-def test_to_centavos_conversoes_validas():
+def test_to_centavos_valid_conversions():
     assert XmlParser._to_centavos("150.50") == 15050
     assert XmlParser._to_centavos("0.01") == 1
     assert XmlParser._to_centavos("100") == 10000
 
 
-def test_to_centavos_valores_vazios():
+def test_to_centavos_empty_values():
     assert XmlParser._to_centavos("") == 0
     assert XmlParser._to_centavos(None) == 0
 
 
-def test_get_xml_files_sucesso(tmp_path: Path):
-    (tmp_path / "nota1.xml").touch()
-    (tmp_path / "nota2.xml").touch()
-    (tmp_path / "texto.txt").touch()
+def test_get_xml_files_success(tmp_path: Path):
+    (tmp_path / "note1.xml").touch()
+    (tmp_path / "note2.xml").touch()
+    (tmp_path / "text.txt").touch()
 
     files = list(XmlParser.get_xml_files(tmp_path))
     assert len(files) == 2
     assert all(f.suffix == ".xml" for f in files)
 
 
-def test_get_xml_files_diretorio_invalido():
-    path_inexistente = Path("/caminho/que/nao/existe")
+def test_get_xml_files_invalid_directory():
+    non_existent_path = Path("/path/that/does/not/exist")
     with pytest.raises(FileNotFoundError, match="Diretório inválido"):
-        list(XmlParser.get_xml_files(path_inexistente))
+        list(XmlParser.get_xml_files(non_existent_path))
 
 
-def test_parse_nfe_valida_producao(tmp_path: Path):
+def test_parse_valid_production_nfe(tmp_path: Path):
     xml_content = """<?xml version="1.0" encoding="UTF-8"?>
     <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe">
         <NFe>
@@ -52,7 +52,7 @@ def test_parse_nfe_valida_producao(tmp_path: Path):
         </NFe>
     </nfeProc>
     """
-    xml_file = tmp_path / "nfe_valida.xml"
+    xml_file = tmp_path / "valid_nfe.xml"
     xml_file.write_text(xml_content, encoding="utf-8")
 
     docs = list(XmlParser.parse_xml(xml_file))
@@ -68,42 +68,42 @@ def test_parse_nfe_valida_producao(tmp_path: Path):
     assert doc.situation_code == "00"
 
 
-def test_parse_ignora_homologacao(tmp_path: Path):
+def test_parse_ignores_homologation(tmp_path: Path):
     xml_content = """<?xml version="1.0" encoding="UTF-8"?>
     <NFe>
         <infNFe Id="NFe35260900000000000000550010000000011000000000">
             <ide>
-                <tpAmb>2</tpAmb> <!-- Homologação / Teste -->
+                <tpAmb>2</tpAmb> <!-- Homologation / Test -->
             </ide>
         </infNFe>
     </NFe>
     """
-    xml_file = tmp_path / "nfe_homologacao.xml"
+    xml_file = tmp_path / "homologation_nfe.xml"
     xml_file.write_text(xml_content, encoding="utf-8")
 
     docs = list(XmlParser.parse_xml(xml_file))
     assert len(docs) == 0
 
 
-def test_parse_ignora_chave_tamanho_invalido(tmp_path: Path):
+def test_parse_ignores_invalid_key_length(tmp_path: Path):
     xml_content = """<?xml version="1.0" encoding="UTF-8"?>
     <NFe>
-        <infNFe Id="NFe12345"> <!-- Chave curta -->
+        <infNFe Id="NFe12345"> <!-- Short key -->
             <ide>
                 <tpAmb>1</tpAmb>
             </ide>
         </infNFe>
     </NFe>
     """
-    xml_file = tmp_path / "nfe_chave_curta.xml"
+    xml_file = tmp_path / "short_key_nfe.xml"
     xml_file.write_text(xml_content, encoding="utf-8")
 
     docs = list(XmlParser.parse_xml(xml_file))
     assert len(docs) == 0
 
 
-def test_parse_arquivo_vazio(tmp_path: Path):
-    xml_file = tmp_path / "vazio.xml"
+def test_parse_empty_file(tmp_path: Path):
+    xml_file = tmp_path / "empty.xml"
     xml_file.write_text("", encoding="utf-8")
 
     docs = list(XmlParser.parse_xml(xml_file))

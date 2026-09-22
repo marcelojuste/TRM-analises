@@ -33,11 +33,11 @@ def db_conn():
     conn.close()
 
 
-def test_add_xml_acumula_em_memoria_sem_descarregar(db_conn):
+def test_add_xml_accumulates_in_memory_without_flushing(db_conn):
     repo = FiscalRepository(conn=db_conn, batch_size=5)
 
-    repo.add_xml(("CHAVE_1", "12345678901234", 1000, "2026-09-22", 55, "00"))
-    repo.add_xml(("CHAVE_2", "12345678901234", 2000, "2026-09-22", 55, "00"))
+    repo.add_xml(("KEY_1", "12345678901234", 1000, "2026-09-22", 55, "00"))
+    repo.add_xml(("KEY_2", "12345678901234", 2000, "2026-09-22", 55, "00"))
 
     assert len(repo.xml_batch) == 2
     
@@ -45,13 +45,13 @@ def test_add_xml_acumula_em_memoria_sem_descarregar(db_conn):
     assert count == 0
 
 
-def test_add_xml_descarrega_ao_atingir_batch_size(db_conn):
+def test_add_xml_flushes_when_batch_size_reached(db_conn):
     repo = FiscalRepository(conn=db_conn, batch_size=2)
 
-    repo.add_xml(("CHAVE_1", "12345678901234", 1000, "2026-09-22", 55, "00"))
+    repo.add_xml(("KEY_1", "12345678901234", 1000, "2026-09-22", 55, "00"))
     assert len(repo.xml_batch) == 1
 
-    repo.add_xml(("CHAVE_2", "12345678901234", 2000, "2026-09-22", 55, "00"))
+    repo.add_xml(("KEY_2", "12345678901234", 2000, "2026-09-22", 55, "00"))
 
     assert len(repo.xml_batch) == 0 
 
@@ -59,15 +59,15 @@ def test_add_xml_descarrega_ao_atingir_batch_size(db_conn):
     assert count == 2
 
 
-def test_add_sped_atribui_lista_sem_descarregar_automaticamente(db_conn):
+def test_add_sped_assigns_list_without_flushing_automatically(db_conn):
     repo = FiscalRepository(conn=db_conn, batch_size=2)
 
-    lista_sped = [
-        ("CHAVE_1", "12345678901234", 1000, "2026-09-22", 55, "00", "SPED_FISCAL"),
-        ("CHAVE_2", "12345678901234", 2000, "2026-09-22", 55, "00", "SPED_FISCAL")
+    sped_list = [
+        ("KEY_1", "12345678901234", 1000, "2026-09-22", 55, "00", "SPED_FISCAL"),
+        ("KEY_2", "12345678901234", 2000, "2026-09-22", 55, "00", "SPED_FISCAL")
     ]
     
-    repo.add_sped(lista_sped)
+    repo.add_sped(sped_list)
 
     assert len(repo.sped_batch) == 2
 
@@ -75,12 +75,12 @@ def test_add_sped_atribui_lista_sem_descarregar_automaticamente(db_conn):
     assert count == 0
 
 
-def test_context_manager_descarrega_sobras_ao_sair(db_conn):
+def test_context_manager_flushes_remaining_on_exit(db_conn):
     with FiscalRepository(conn=db_conn, batch_size=10) as repo:
-        repo.add_xml(("CHAVE_1", "12345678901234", 1000, "2026-09-22", 55, "00"))
+        repo.add_xml(("KEY_1", "12345678901234", 1000, "2026-09-22", 55, "00"))
         
-        lista_sped = [("CHAVE_SPED", "12345678901234", 2000, "2026-09-22", 55, "00", "SPED_FISCAL")]
-        repo.add_sped(lista_sped)
+        sped_list = [("SPED_KEY", "12345678901234", 2000, "2026-09-22", 55, "00", "SPED_FISCAL")]
+        repo.add_sped(sped_list)
 
         assert len(repo.xml_batch) == 1
         assert len(repo.sped_batch) == 1

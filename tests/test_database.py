@@ -28,17 +28,17 @@ def mock_paths(tmp_path, monkeypatch):
 
 
 def test_purge_on_enter_removes_pre_existing_garbage(mock_paths):
-    old_file = mock_paths.temp_files_dir / "lixo_antigo.tmp"
-    old_file.write_text("conteúdo residual")
+    old_file = mock_paths.temp_files_dir / "old_garbage.tmp"
+    old_file.write_text("residual content")
 
-    old_subdir = mock_paths.temp_files_dir / "pasta_residual"
+    old_subdir = mock_paths.temp_files_dir / "residual_folder"
     old_subdir.mkdir()
-    (old_subdir / "arquivo_dentro.xml").write_text("<xml>teste</xml>")
+    (old_subdir / "file_inside.xml").write_text("<xml>test</xml>")
 
     assert old_file.exists()
     assert old_subdir.exists()
 
-    enterprise = "empresa_teste"
+    enterprise = "test_company"
     with DisposableAuditDatabase(enterprise) as conn:
         assert not old_file.exists()
         assert not old_subdir.exists()
@@ -46,36 +46,36 @@ def test_purge_on_enter_removes_pre_existing_garbage(mock_paths):
 
 
 def test_purge_on_exit_removes_all_application_temp_files(mock_paths):
-    enterprise = "empresa_teste"
+    enterprise = "test_company"
     db_path = mock_paths.get_enterprise_db_path(enterprise)
 
     with DisposableAuditDatabase(enterprise) as conn:
         assert db_path.exists()
 
-        conn.execute("CREATE TABLE notas (id INT, valor INT);")
-        conn.execute("INSERT INTO notas VALUES (1, 1000);")
+        conn.execute("CREATE TABLE invoices (id INT, amount INT);")
+        conn.execute("INSERT INTO invoices VALUES (1, 1000);")
 
-        temp_xml = mock_paths.temp_files_dir / "nota_processada.xml"
-        temp_xml.write_text("<nfe>dados</nfe>")
+        temp_xml = mock_paths.temp_files_dir / "processed_invoice.xml"
+        temp_xml.write_text("<nfe>data</nfe>")
 
-        temp_folder = mock_paths.temp_files_dir / "extracao_zip"
+        temp_folder = mock_paths.temp_files_dir / "zip_extraction"
         temp_folder.mkdir()
         (temp_folder / "temp.dat").write_bytes(b"12345")
 
         assert temp_xml.exists()
         assert temp_folder.exists()
 
-    arquivos_restantes = list(mock_paths.temp_files_dir.iterdir())
-    assert len(arquivos_restantes) == 0
+    remaining_files = list(mock_paths.temp_files_dir.iterdir())
+    assert len(remaining_files) == 0
 
 
 def test_schema_applied_and_purged_on_completion(mock_paths):
     mock_paths.schema_path.write_text(
-        "CREATE TABLE xml_documents (chave_acesso VARCHAR PRIMARY KEY, valor_centavos INT);",
+        "CREATE TABLE xml_documents (access_key VARCHAR PRIMARY KEY, total_cents INT);",
         encoding="utf-8",
     )
 
-    enterprise = "empresa_schema"
+    enterprise = "schema_company"
     db_path = mock_paths.get_enterprise_db_path(enterprise)
 
     with DisposableAuditDatabase(enterprise) as conn:
@@ -88,11 +88,11 @@ def test_schema_applied_and_purged_on_completion(mock_paths):
 
 
 def test_purge_on_schema_error(mock_paths):
-    mock_paths.schema_path.write_text("SINTAXE_INVALIDA_DE_SQL;", encoding="utf-8")
+    mock_paths.schema_path.write_text("INVALID_SQL_SYNTAX;", encoding="utf-8")
 
-    enterprise = "empresa_erro"
+    enterprise = "error_company"
 
-    with pytest.raises(RuntimeError, match="Erro ao carregar o schema do banco de dados"):
+    with pytest.raises(RuntimeError, match="Error loading database schema"):
         with DisposableAuditDatabase(enterprise):
             pass
 

@@ -3,6 +3,7 @@ from pathlib import Path
 from src.models.sped_document import SpedDocument
 from src.parsers.sped_parser import SpedParser 
 
+
 def test_parse_0000_efd_contribuicoes():
     line_0000 = "|0000|2|3|4|5|6| 12.345.678/0001-90 |8|9|10|11|12|13|14|"
     
@@ -21,14 +22,15 @@ def test_parse_0000_efd_icms_ipi():
     assert SpedParser.cnpj_emit == "98765432000110"
 
 
-def test_parse_0000_desconhecido():
+def test_parse_0000_unknown():
     line_invalid = "|0001|2|"
     
     SpedParser._parse_0000(line_invalid)
     
     assert SpedParser.sped_type == "DESCONHECIDO"
 
-def test_parse_C100_linha_valida():
+
+def test_parse_C100_valid_line():
     line = "|C100|1|1|3|4|55|00|7|8|12345678901234567890123456789012345678901234|01052023|11|150,55|"
     
     result = SpedParser._parse_C100(line)
@@ -36,26 +38,26 @@ def test_parse_C100_linha_valida():
     assert result == (55, "00", "12345678901234567890123456789012345678901234", "01-05-2023", 15055)
 
 
-def test_parse_C100_indicador_operacao_diferente_de_1():
-    line = "|C100|0|0|3|4|55|00|7|8|CHAVE|01052023|11|150,55|"
+def test_parse_C100_operation_indicator_not_equal_to_1():
+    line = "|C100|0|0|3|4|55|00|7|8|KEY|01052023|11|150,55|"
     
     result = SpedParser._parse_C100(line)
     
     assert result == ("Homologation",)
 
 
-def test_parse_C100_valores_vazios_usam_fallback():
-    line = "|C100|1|1|3|4||00|7|8|CHAVE||11||"
+def test_parse_C100_empty_values_use_fallback():
+    line = "|C100|1|1|3|4||00|7|8|KEY||11||"
     
     result = SpedParser._parse_C100(line)
     
-    assert result == (55, "00", "CHAVE", "00-00-0000", 0)
+    assert result == (55, "00", "KEY", "00-00-0000", 0)
 
 
-def test_parse_sped_arquivo_completo(tmp_path):
+def test_parse_sped_complete_file(tmp_path):
     content = (
         "|0000|2|3|4|5|6| 12.345.678/0001-90 |8|9|10|11|12|13|14|\n"
-        "|C100|1|1|3|4|55|00|7|8|CHAVE123|01052023|11|100,00|\n"
+        "|C100|1|1|3|4|55|00|7|8|KEY123|01052023|11|100,00|\n"
     )
     fake_sped = tmp_path / "sped_test.txt"
     fake_sped.write_text(content, encoding="latin-1")
