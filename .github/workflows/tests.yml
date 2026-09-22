@@ -28,4 +28,10 @@ jobs:
 
     - name: Rodar testes
       run: |
-        python -m pytest
+        python -m pytest --junitxml=pytest-report.xml
+
+    - name: Publicar relatorio de testes
+      uses: mikepenz/action-junit-report@v4
+      if: always()
+      with:
+        report_paths: 'pytest-report.xml'
