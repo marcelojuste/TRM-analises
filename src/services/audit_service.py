@@ -4,7 +4,7 @@ from src.database.database import DisposableAuditDatabase
 from src.repositories.fiscal_repository import FiscalRepository
 from src.parsers.xml_parser import XmlParser
 from src.parsers.sped_parser import SpedParser
-from src.services.csv_exporter import ExportService
+from src.services.excel_exporter import ExportService
 
 class AuditService:
     def __init__(
@@ -39,15 +39,13 @@ class AuditService:
                 data_repository.add_xml(fiscal_doc.to_tuple())
 
     def _process_sped(self, data_repository: FiscalRepository) -> None:
-        sped_file = SpedParser(self.sped_path)
-        sped_file._parse_sped()
-        
-        if sped_file.fiscal_notes:
-            data_repository.add_sped(sped_file.fiscal_notes)
+        with SpedParser(self.sped_path) as sped_parser:
+            if sped_parser.fiscal_notes:
+                data_repository.add_sped(sped_parser.fiscal_notes)
 
     def _export_results(self, conn) -> None:
-        ExportService.export_query_to_csv(
+        ExportService.export_query_to_excel(
             conn=conn,
             sql_file_path=self.sql_query_path,
-            output_csv_path=self.output_csv_path
+            output_xlsx_path=self.output_xlsx_path
         )
