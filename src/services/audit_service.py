@@ -25,7 +25,7 @@ class AuditService:
         output_xlsx_path = PATHS.outputs_dir / f"relatorio_auditoria_{enterprise_name}.xlsx"
 
         with DisposableAuditDatabase(enterprise=enterprise_name) as conn:
-            with FiscalRepository(conn, batch_size=1000) as repo: #
+            with FiscalRepository(conn, batch_size=1000) as repo:
                 for xml_tuple in xml_notes:
                     repo.add_xml(xml_tuple)
                 

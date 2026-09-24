@@ -6,8 +6,8 @@ class FiscalDocument:
     cnpj_emit: str
     total_value: int
     emission_date: str
-    nf_type: int
-    situation_code: str
+    nfe_model: int
+    document_status: str
 
     def to_tuple(self) -> tuple:
         return (
@@ -15,6 +15,6 @@ class FiscalDocument:
             self.cnpj_emit,
             self.total_value,
             self.emission_date,
-            self.nf_type,
-            self.situation_code,
+            self.nfe_model,
+            self.document_status,
         )

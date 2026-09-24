@@ -67,18 +67,18 @@ class XmlParser:
         emission_date = raw_date.split("T")[0] if raw_date else ""
 
         mod_val = find_text(inf_nfe, "mod")
-        nf_type = int(mod_val) if mod_val.isdigit() else 1
+        nfe_model = int(mod_val) if mod_val.isdigit() else 1
 
         v_nf = find_text(inf_nfe, "vNF")
         total_value = XmlParser._to_centavos(v_nf)
 
-        situation_code = find_text(inf_nfe, "cSitNFe") or "00"
+        document_status = find_text(inf_nfe, "cSitNFe") or "00"
 
         return FiscalDocument(
             access_key=access_key,
             cnpj_emit=cnpj_emit,
             total_value=total_value,
             emission_date=emission_date,
-            nf_type=nf_type,
-            situation_code=situation_code,
+            nfe_model=nfe_model,
+            document_status=document_status,
         )

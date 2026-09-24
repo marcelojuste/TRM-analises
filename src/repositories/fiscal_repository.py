@@ -17,7 +17,7 @@ class FiscalRepository:
         if len(self.xml_batch) >= self.batch_size:
             self._flush_xmls()
 
-    def add_sped(self, sped_tuples: list) -> None:
+    def add_sped(self, sped_tuples: list | list[tuple]) -> None:
         self.sped_batch.extend(sped_tuples)
         if len(self.sped_batch) >= self.batch_size:
             self._flush_speds()
@@ -25,13 +25,27 @@ class FiscalRepository:
     def _flush_xmls(self) -> None:
         if not self.xml_batch:
             return
-        # Substitua pelas colunas e tabela reais do seu projeto
-        self.conn.executemany("INSERT INTO xml_documents VALUES (?, ?)", self.xml_batch)
-        self.xml_batch.clear()
+        try:
+            self.conn.executemany(
+                "INSERT INTO xml_documents VALUES (?, ?, ?, ?, ?, ?)", 
+                self.xml_batch
+            )
+        except Exception as e:
+            print(f"❌ Erro ao inserir XMLs no banco: {e}")
+            raise e
+        finally:
+            self.xml_batch.clear()
 
     def _flush_speds(self) -> None:
         if not self.sped_batch:
             return
-        # Substitua pelas colunas e tabela reais do seu projeto
-        self.conn.executemany("INSERT INTO sped_documents VALUES (?, ?)", self.sped_batch)
-        self.sped_batch.clear()
+        try:
+            self.conn.executemany(
+                "INSERT INTO sped_documents VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                self.sped_batch
+            )
+        except Exception as e:
+            print(f"❌ Erro ao inserir SPEDs no banco: {e}")
+            raise e
+        finally:
+            self.sped_batch.clear()

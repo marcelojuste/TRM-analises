@@ -46,7 +46,10 @@ class DisposableAuditDatabase:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self._close_connection()
-        self._purge_temp_dir()
+        try:
+            self._purge_temp_dir()
+        except Exception as e:
+            print(f"Aviso ao limpar ficheiros temporários: {e}")
 
     def _close_connection(self) -> None:
         if self._conn:
