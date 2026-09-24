@@ -1,13 +1,17 @@
 import sys
 import ctypes
+from pathlib import Path
+from tkinter import messagebox
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
 from src.views.components.header import HeaderFrame
 from src.views.components.file_card import FileSelectionCard
 from src.app_paths import PATHS
+from src.services.audit_service import AuditService
 
 ctk.set_appearance_mode("Light")
+
 
 class MainWindow(ctk.CTk):
     def __init__(self):
@@ -21,11 +25,9 @@ class MainWindow(ctk.CTk):
         self.configure(fg_color="#F8FAFC")
 
         self._set_app_icon()
-
         self._build_widgets()
 
     def _set_windows_app_id(self):
-        """Define um ID único de aplicação no Windows para que o ícone na barra de tarefas seja o da TRM."""
         if sys.platform.startswith("win"):
             my_app_id = "trmsistemas.trmanalises.auditor.1.0"
             try:
@@ -34,7 +36,7 @@ class MainWindow(ctk.CTk):
                 print(f"Erro ao definir AppUserModelID: {e}")
 
     def _set_app_icon(self):
-        icon_path = (PATHS.icons_dir / "iconTRM.ico")
+        icon_path = PATHS.icons_dir / "iconTRM.ico"
         
         if icon_path.exists():
             try:
@@ -88,13 +90,46 @@ class MainWindow(ctk.CTk):
         self.btn_execute.pack(fill="x", ipady=2)
 
     def run_audit(self):
-        paths = {
-            "NFC-e": self.card_nfce.get_path(),
-            "NF-e": self.card_nfe.get_path(),
-            "SPED Fiscal": self.card_sped_fiscal.get_path(),
-            "SPED Contribuições": self.card_sped_cofins.get_path(),
-        }
-        print("A iniciar auditoria com os caminhos:", paths)
+        xml_dir_raw = self.card_nfe.get_path() or self.card_nfce.get_path()
+        sped_file_raw = self.card_sped_cofins.get_path() or self.card_sped_fiscal.get_path()
+
+        if not xml_dir_raw:
+            messagebox.showwarning("Aviso", "Por favor, selecione ao menos um diretório de XMLs (NF-e ou NFC-e).")
+            return
+
+        if not sped_file_raw:
+            messagebox.showwarning("Aviso", "Por favor, selecione ao menos um arquivo SPED (.txt).")
+            return
+
+        xml_dir = Path(xml_dir_raw)
+        sped_path = Path(sped_file_raw)
+
+        if not xml_dir.exists():
+            messagebox.showerror("Erro", f"O diretório de XMLs informado não existe:\n{xml_dir}")
+            return
+
+        if not sped_path.exists():
+            messagebox.showerror("Erro", f"O arquivo SPED informado não existe:\n{sped_path}")
+            return
+
+        self.btn_execute.configure(state="disabled", text="⏳ Processando Auditoria...")
+        self.update_idletasks()
+
+        try:
+            audit_service = AuditService(xml_dir=xml_dir, sped_path=sped_path)
+
+            audit_service.run_pipeline()
+
+            messagebox.showinfo(
+                "Sucesso", 
+                f"Auditoria concluída com sucesso!\n\nRelatório gerado em:\n{PATHS.outputs_dir.resolve()}"
+            )
+
+        except Exception as e:
+            messagebox.showerror("Erro na Auditoria", f"Ocorreu um erro durante a execução:\n{e}")
+
+        finally:
+            self.btn_execute.configure(state="normal", text="▶   Executar Auditoria")
 
 
 if __name__ == "__main__":
