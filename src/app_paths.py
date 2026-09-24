@@ -7,6 +7,8 @@ class AppPaths:
     database_dir: Path
     schema_path: Path
     temp_files_dir: Path
+    images_dir: Path
+    icons_dir: Path
 
     @classmethod
     def from_root(cls) -> "AppPaths":
@@ -18,6 +20,8 @@ class AppPaths:
             database_dir=src_dir / "database",
             schema_path=src_dir / "database" / "queries" / "schema.sql",
             temp_files_dir=src_dir / "temp_files",
+            images_dir=src_dir / "views" / "assets" / "images",
+            icons_dir=src_dir / "views" / "assets" / "icons", 
         )
 
     def get_enterprise_db_path(self, enterprise: str) -> Path:
