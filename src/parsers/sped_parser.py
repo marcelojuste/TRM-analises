@@ -12,6 +12,10 @@ class SpedParser:
         self.cnpj_emit: str = ""
         self.sped_type: str = ""
 
+    def get_enterprise(self):
+        if self.enterprise_name:
+            return self.enterprise_name
+    
     def _parse_0000(self, line_0000: str):
         fields = line_0000.strip().split('|')
         
@@ -19,8 +23,6 @@ class SpedParser:
             self.sped_type = "DESCONHECIDO"
             return
 
-        # A EFD Contribuições tem no mínimo 16 pipes no cabeçalho (len >= 17)
-        # A EFD ICMS/IPI tem 15 pipes no cabeçalho padrão (len == 16 ou 17 dependendo do separador)
         total_fields = len(fields)
 
         if total_fields >= 18:
