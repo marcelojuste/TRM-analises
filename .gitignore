@@ -72,5 +72,9 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
-#db
+# db
 **/trm_analises.db
+
+# outputs
+**/outputs/
+
