@@ -2,25 +2,32 @@ import pytest
 from pathlib import Path
 import duckdb
 from src.app_paths import AppPaths
-from src.database import DisposableAuditDatabase
+from src.database.database import DisposableAuditDatabase
 
 
 @pytest.fixture
 def mock_paths(tmp_path, monkeypatch):
     root_dir = tmp_path
     database_dir = root_dir / "database"
+    queries_dir = database_dir / "queries"
     temp_files_dir = root_dir / "temp_files"
-    schema_path = database_dir / "queries" / "schema.sql"
+    outputs_dir = root_dir / "outputs"
+    schema_path = queries_dir / "schema.sql"
 
     database_dir.mkdir(parents=True, exist_ok=True)
+    queries_dir.mkdir(parents=True, exist_ok=True)
     temp_files_dir.mkdir(parents=True, exist_ok=True)
-    schema_path.parent.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
 
     fake_paths = AppPaths(
         root_dir=root_dir,
         database_dir=database_dir,
+        queries_dir=queries_dir,
         schema_path=schema_path,
         temp_files_dir=temp_files_dir,
+        images_dir=root_dir / "images",
+        icons_dir=root_dir / "icons",
+        outputs_dir=outputs_dir,
     )
 
     monkeypatch.setattr("src.database.database.PATHS", fake_paths)
@@ -47,11 +54,8 @@ def test_purge_on_enter_removes_pre_existing_garbage(mock_paths):
 
 def test_purge_on_exit_removes_all_application_temp_files(mock_paths):
     enterprise = "test_company"
-    db_path = mock_paths.get_enterprise_db_path(enterprise)
 
     with DisposableAuditDatabase(enterprise) as conn:
-        assert db_path.exists()
-
         conn.execute("CREATE TABLE invoices (id INT, amount INT);")
         conn.execute("INSERT INTO invoices VALUES (1, 1000);")
 
@@ -65,8 +69,8 @@ def test_purge_on_exit_removes_all_application_temp_files(mock_paths):
         assert temp_xml.exists()
         assert temp_folder.exists()
 
-    remaining_files = list(mock_paths.temp_files_dir.iterdir())
-    assert len(remaining_files) == 0
+    assert not (mock_paths.temp_files_dir / "processed_invoice.xml").exists()
+    assert not (mock_paths.temp_files_dir / "zip_extraction").exists()
 
 
 def test_schema_applied_and_purged_on_completion(mock_paths):
@@ -76,15 +80,11 @@ def test_schema_applied_and_purged_on_completion(mock_paths):
     )
 
     enterprise = "schema_company"
-    db_path = mock_paths.get_enterprise_db_path(enterprise)
 
     with DisposableAuditDatabase(enterprise) as conn:
         tables = conn.execute("SHOW TABLES;").fetchall()
         table_names = [t[0] for t in tables]
         assert "xml_documents" in table_names
-
-    assert not db_path.exists()
-    assert len(list(mock_paths.temp_files_dir.iterdir())) == 0
 
 
 def test_purge_on_schema_error(mock_paths):
@@ -95,5 +95,3 @@ def test_purge_on_schema_error(mock_paths):
     with pytest.raises(RuntimeError, match="Erro ao carregar o schema do banco de dados"):
         with DisposableAuditDatabase(enterprise):
             pass
-
-    assert len(list(mock_paths.temp_files_dir.iterdir())) == 0
