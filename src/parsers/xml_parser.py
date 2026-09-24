@@ -23,18 +23,18 @@ class XmlParser:
 
         return directory_path.rglob("*.xml")
 
-    @classmethod
-    def parse_xml(cls, xml_path: Path | str) -> Iterator[FiscalDocument]:
+    @staticmethod
+    def parse_xml(xml_path: Path | str) -> FiscalDocument | None:
         xml_path = Path(xml_path)
 
         if not xml_path.exists() or xml_path.stat().st_size == 0:
-            return
+            return None
 
         try:
             tree = ET.parse(xml_path)
             root = tree.getroot()
         except ET.ParseError:
-            return
+            return None
 
         def find_text(elem, tag_name: str) -> str:
             for node in elem.iter():
@@ -50,16 +50,16 @@ class XmlParser:
 
         inf_nfe = find_elem(root, "infNFe")
         if inf_nfe is None:
-            return
+            return None
 
         tp_amb = find_text(inf_nfe, "tpAmb")
         if tp_amb != "1":
-            return
+            return None
 
         raw_id = inf_nfe.attrib.get("Id", "")
         access_key = raw_id.replace("NFe", "").strip()
         if len(access_key) != 44:
-            return
+            return None
 
         cnpj_emit = find_text(inf_nfe, "CNPJ")
         
@@ -70,11 +70,11 @@ class XmlParser:
         nf_type = int(mod_val) if mod_val.isdigit() else 1
 
         v_nf = find_text(inf_nfe, "vNF")
-        total_value = cls._to_centavos(v_nf)
+        total_value = XmlParser._to_centavos(v_nf)
 
         situation_code = find_text(inf_nfe, "cSitNFe") or "00"
 
-        yield FiscalDocument(
+        return FiscalDocument(
             access_key=access_key,
             cnpj_emit=cnpj_emit,
             total_value=total_value,

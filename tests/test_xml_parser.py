@@ -55,10 +55,9 @@ def test_parse_valid_production_nfe(tmp_path: Path):
     xml_file = tmp_path / "valid_nfe.xml"
     xml_file.write_text(xml_content, encoding="utf-8")
 
-    docs = list(XmlParser.parse_xml(xml_file))
+    doc = XmlParser.parse_xml(xml_file)
 
-    assert len(docs) == 1
-    doc = docs[0]
+    assert doc is not None
     assert isinstance(doc, FiscalDocument)
     assert doc.access_key == "35260900000000000000550010000000011000000000"
     assert doc.cnpj_emit == "12345678000195"
@@ -81,8 +80,8 @@ def test_parse_ignores_homologation(tmp_path: Path):
     xml_file = tmp_path / "homologation_nfe.xml"
     xml_file.write_text(xml_content, encoding="utf-8")
 
-    docs = list(XmlParser.parse_xml(xml_file))
-    assert len(docs) == 0
+    doc = XmlParser.parse_xml(xml_file)
+    assert doc is None
 
 
 def test_parse_ignores_invalid_key_length(tmp_path: Path):
@@ -98,13 +97,13 @@ def test_parse_ignores_invalid_key_length(tmp_path: Path):
     xml_file = tmp_path / "short_key_nfe.xml"
     xml_file.write_text(xml_content, encoding="utf-8")
 
-    docs = list(XmlParser.parse_xml(xml_file))
-    assert len(docs) == 0
+    doc = XmlParser.parse_xml(xml_file)
+    assert doc is None
 
 
 def test_parse_empty_file(tmp_path: Path):
     xml_file = tmp_path / "empty.xml"
     xml_file.write_text("", encoding="utf-8")
 
-    docs = list(XmlParser.parse_xml(xml_file))
-    assert len(docs) == 0
+    doc = XmlParser.parse_xml(xml_file)
+    assert doc is None
