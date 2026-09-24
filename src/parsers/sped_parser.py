@@ -4,33 +4,40 @@ from pathlib import Path
 from src.models.sped_document import SpedDocument
 
 class SpedParser:
-    fiscal_notes: list[tuple] | None = None
-    cnpj_emit: str = ""
-    sped_type: str = ""
-    file_path: Path | None = None
-
     def __init__(self, sped_file: Path):
         self.sped_file = sped_file
-        SpedParser.file_path = sped_file
+        self.file_path = sped_file
+        self.enterprise_name: str | None = None
+        self.fiscal_notes: list[tuple] | None = None
+        self.cnpj_emit: str = ""
+        self.sped_type: str = ""
 
-    @classmethod
-    def _parse_0000(cls, line_0000: str):
+    def _parse_0000(self, line_0000: str):
         fields = line_0000.strip().split('|')
+        
         if len(fields) < 4 or fields[1] != '0000':
-            cls.sped_type = "DESCONHECIDO"
-        elif len(fields) == 16:
-            cls.sped_type = "EFD_CONTRIBUICOES"
-        elif len(fields) == 15:
-            cls.sped_type = "EFD_ICMS_IPI"
+            self.sped_type = "DESCONHECIDO"
+            return
+
+        # A EFD Contribuições tem no mínimo 16 pipes no cabeçalho (len >= 17)
+        # A EFD ICMS/IPI tem 15 pipes no cabeçalho padrão (len == 16 ou 17 dependendo do separador)
+        total_fields = len(fields)
+
+        if total_fields >= 18:
+            self.sped_type = "EFD_CONTRIBUICOES"
+        elif total_fields in (16, 17):
+            self.sped_type = "EFD_ICMS_IPI"
         else:
-            cls.sped_type = "DESCONHECIDO" 
+            self.sped_type = "DESCONHECIDO"
+
+        if not self.enterprise_name and len(fields) > 6:
+            self.enterprise_name = fields[6].strip()
 
         if len(fields) > 7:
             cnpj_raw = fields[7].strip()
-            cls.cnpj_emit = "".join(filter(str.isdigit, cnpj_raw))
+            self.cnpj_emit = "".join(filter(str.isdigit, cnpj_raw))
 
-    @classmethod
-    def _parse_C100(cls, line: str) -> tuple:
+    def _parse_C100(self, line: str) -> tuple:
         if line.startswith('|C100|'):
             fields = line.strip().split('|')
             if len(fields) < 3:
@@ -56,25 +63,24 @@ class SpedParser:
             
         return ()
 
-    @classmethod
-    def _parse_sped(cls) -> Generator[SpedDocument, None, None]:
-        if cls.fiscal_notes is None:
-            cls.fiscal_notes = []
+    def _parse_sped(self) -> Generator[SpedDocument, None, None]:
+        if self.fiscal_notes is None:
+            self.fiscal_notes = []
 
-        if not cls.file_path or not cls.file_path.exists():
+        if not self.file_path or not self.file_path.exists():
             return
 
-        with open(cls.file_path, 'r', encoding='latin-1') as file:
+        with open(self.file_path, 'r', encoding='latin-1') as file:
             for line in file:
                 line_str = line.strip()
                 if not line_str:
                     continue
 
                 if line_str.startswith('|0000|'):
-                    cls._parse_0000(line_str)
+                    self._parse_0000(line_str)
 
                 elif line_str.startswith('|C100|'):
-                    fields_C100 = cls._parse_C100(line_str)
+                    fields_C100 = self._parse_C100(line_str)
                     
                     if fields_C100 == ("Homologation",) or not fields_C100:
                         continue
@@ -83,15 +89,15 @@ class SpedParser:
 
                     fiscal_note = SpedDocument(
                         access_key=access_key,
-                        cnpj_emit=cls.cnpj_emit,
+                        cnpj_emit=self.cnpj_emit,
                         total_value=total_value,
                         emission_date=emission_date,
                         nf_type=nfe_model,
                         situation_code=document_status,
-                        sped_type=cls.sped_type
+                        sped_type=self.sped_type
                     )
 
-                    cls.fiscal_notes.append(fiscal_note.to_tuple())
+                    self.fiscal_notes.append(fiscal_note.to_tuple())
                     yield fiscal_note
 
     def __enter__(self):
@@ -99,11 +105,4 @@ class SpedParser:
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        self._clean_sped_document()
-        
-    @classmethod
-    def _clean_sped_document(cls):
-        cls.fiscal_notes = None
-        cls.cnpj_emit = ""
-        cls.sped_type = ""
-        cls.file_path = None
+        pass
