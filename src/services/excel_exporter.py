@@ -2,7 +2,7 @@ from pathlib import Path
 import duckdb
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.writer.excel import WriteOnlyCell
+from openpyxl.cell import WriteOnlyCell  # <--- Correção aqui!
 
 class ExportService:
     @staticmethod
@@ -23,7 +23,6 @@ class ExportService:
         wb = Workbook(write_only=True)
         ws = wb.create_sheet(title="Dados Auditados")
 
-        # Define os estilos desejados
         header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
         header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
         cell_alignment = Alignment(vertical="center")
