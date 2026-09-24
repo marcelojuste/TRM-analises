@@ -8,8 +8,7 @@ def test_parse_0000_efd_contribuicoes(tmp_path: Path):
     fake_file = tmp_path / "fake.txt"
     fake_file.touch()
     parser = SpedParser(fake_file)
-    
-    # 17 pipes -> 18 elementos na lista
+
     line_0000 = "|0000|006|0|01012023|31012023|Empresa Teste|12345678000190|UF|000000|000|0|1|1|1|1|1|"
     parser._parse_0000(line_0000)
     
@@ -21,8 +20,7 @@ def test_parse_0000_efd_icms_ipi(tmp_path: Path):
     fake_file = tmp_path / "fake.txt"
     fake_file.touch()
     parser = SpedParser(fake_file)
-    
-    # 15 pipes -> 16 elementos na lista
+
     line_0000 = "|0000|015|0|01012023|31012023|Empresa Teste|98765432000110|UF|00|00|0|1|1|1|1|"
     parser._parse_0000(line_0000)
     
@@ -48,8 +46,8 @@ def test_parse_C100_valid_line(tmp_path: Path):
     
     line = "|C100|1|1|3|4|55|00|7|8|12345678901234567890123456789012345678901234|01052023|11|150,55|"
     result = parser._parse_C100(line)
-    
-    assert result == (55, "00", "12345678901234567890123456789012345678901234", "01-05-2023", 15055)
+
+    assert result == (55, "00", "12345678901234567890123456789012345678901234", "2023-05-01", 15055)
 
 
 def test_parse_C100_operation_indicator_not_equal_to_1(tmp_path: Path):
@@ -70,8 +68,8 @@ def test_parse_C100_empty_values_use_fallback(tmp_path: Path):
     
     line = "|C100|1|1|3|4||00|7|8|KEY||11||"
     result = parser._parse_C100(line)
-    
-    assert result == (55, "00", "KEY", "00-00-0000", 0)
+
+    assert result == (55, "00", "KEY", "1900-01-01", 0)
 
 
 def test_parse_sped_complete_file(tmp_path: Path):

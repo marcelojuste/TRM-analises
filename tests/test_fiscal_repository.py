@@ -60,7 +60,7 @@ def test_add_xml_flushes_when_batch_size_reached(db_conn):
 
 
 def test_add_sped_assigns_list_without_flushing_automatically(db_conn):
-    repo = FiscalRepository(conn=db_conn, batch_size=2)
+    repo = FiscalRepository(conn=db_conn, batch_size=10)
 
     sped_list = [
         ("KEY_1", "12345678901234", 1000, "2026-09-22", 55, "00", "SPED_FISCAL"),

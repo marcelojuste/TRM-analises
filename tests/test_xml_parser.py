@@ -63,8 +63,8 @@ def test_parse_valid_production_nfe(tmp_path: Path):
     assert doc.cnpj_emit == "12345678000195"
     assert doc.total_value == 150050
     assert doc.emission_date == "2026-09-17"
-    assert doc.nf_type == 1
-    assert doc.situation_code == "00"
+    assert doc.nfe_model == 1
+    assert doc.document_status == "00"
 
 
 def test_parse_ignores_homologation(tmp_path: Path):

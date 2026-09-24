@@ -138,29 +138,56 @@ def test_audit_service_real_pipeline_execution(
 ):
     mock_sped_instance = MagicMock()
     mock_sped_instance.get_enterprise.return_value = "EMPRESA TESTE REAL SA"
-    mock_sped_instance.fiscal_notes = [("C100", "12345")]
+    mock_sped_instance.fiscal_notes = [
+        (
+            "31240112345678000195550010000123451000123456",
+            "12345678000195",                               
+            10000,                                         
+            "2026-09-17",                              
+            55,                                         
+            "00",                                      
+            "EFD_ICMS_IPI"                                  
+        )
+    ]
     mock_sped_parser.return_value.__enter__.return_value = mock_sped_instance
 
     fake_doc = MagicMock()
-    fake_doc.to_tuple.return_value = ("NFe31240112345678000195550010000123451000123456", 10000)
+    fake_doc.to_tuple.return_value = (
+        "31240112345678000195550010000123451000123456",
+        "12345678000195",
+        10000,
+        "2026-09-17",
+        55,
+        "00"
+    )
+
     mock_xml_parser.get_xml_files.return_value = [tmp_path / "nfe.xml"]
     mock_xml_parser.parse_xml.return_value = fake_doc
 
     mock_paths.schema_path.write_text("""
-        CREATE TABLE IF NOT EXISTS xml_documents (
+    CREATE TABLE IF NOT EXISTS xml_documents (
             access_key VARCHAR,
-            total_cents INT
+            cnpj_emit VARCHAR,
+            total_value BIGINT,
+            emission_date VARCHAR,
+            nfe_model INT,
+            document_status VARCHAR
         );
         CREATE TABLE IF NOT EXISTS sped_documents (
-            reg VARCHAR,
-            num_doc VARCHAR
+            access_key VARCHAR,
+            cnpj_emit VARCHAR,
+            total_value BIGINT,
+            emission_date VARCHAR,
+            nfe_model INT,
+            document_status VARCHAR,
+            sped_type VARCHAR
         );
     """, encoding="utf-8")
 
     (mock_paths.queries_dir / "audit.sql").write_text("""
-        SELECT access_key AS chave, total_cents AS valor FROM xml_documents
+        SELECT access_key AS chave, total_value AS valor FROM xml_documents
         UNION ALL
-        SELECT reg AS chave, CAST(num_doc AS INT) AS valor FROM sped_documents;
+        SELECT access_key AS chave, total_value AS valor FROM sped_documents;
     """, encoding="utf-8")
 
     service = AuditService(xml_dir=tmp_path, sped_path=tmp_path / "sped.txt")
