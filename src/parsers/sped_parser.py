@@ -5,9 +5,9 @@ from src.models.sped_document import SpedDocument
 
 
 class SpedParser:
-    def __init__(self, sped_file: Path):
-        self.sped_file = Path(sped_file)
-        self.file_path = Path(sped_file)
+    def __init__(self, sped_file: Path | str | None):
+        self.sped_file: Path | None = Path(sped_file) if sped_file is not None else None
+        self.file_path: Path | None = Path(sped_file) if sped_file is not None else None
         self.enterprise_name: str | None = None
         self.fiscal_notes: list[tuple] = []
         self.cnpj_emit: str = ""

@@ -37,7 +37,6 @@ class AuditService:
         if self.sped_cofins_path and self.sped_cofins_path.exists():
             with SpedParser(self.sped_cofins_path) as sped_cofins_parser:
                 sped_cofins_notes = sped_cofins_parser.fiscal_notes or []
-                # Se ainda não identificou a empresa pelo Fiscal, pega do Contribuições
                 if enterprise_name == "EMPRESA_DESCONHECIDA":
                     found_name = sped_cofins_parser.get_enterprise()
                     if found_name and found_name != "EMPRESA_DESCONHECIDA":
