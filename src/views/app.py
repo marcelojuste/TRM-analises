@@ -90,34 +90,39 @@ class MainWindow(ctk.CTk):
         self.btn_execute.pack(fill="x", ipady=2)
 
     def run_audit(self):
-        xml_dir_raw = self.card_nfe.get_path() or self.card_nfce.get_path()
-        sped_file_raw = self.card_sped_cofins.get_path() or self.card_sped_fiscal.get_path()
+        raw_paths = {
+            "nfe": self.card_nfe.get_path(),
+            "nfce": self.card_nfce.get_path(),
+            "sped_fiscal": self.card_sped_fiscal.get_path(),
+            "sped_cofins": self.card_sped_cofins.get_path(),
+        }
 
-        if not xml_dir_raw:
-            messagebox.showwarning("Aviso", "Por favor, selecione ao menos um diretório de XMLs (NF-e ou NFC-e).")
+        has_xml = any([raw_paths["nfe"], raw_paths["nfce"]])
+        has_sped = any([raw_paths["sped_fiscal"], raw_paths["sped_cofins"]])
+
+        if not (has_xml and has_sped):
+            msg = "Por favor, selecione ao menos um diretório de XMLs (NF-e ou NFC-e)." if not has_xml \
+                else "Por favor, selecione ao menos um arquivo SPED (.txt)."
+            messagebox.showwarning("Aviso", msg)
             return
 
-        if not sped_file_raw:
-            messagebox.showwarning("Aviso", "Por favor, selecione ao menos um arquivo SPED (.txt).")
-            return
+        paths = {key: Path(val) if val else None for key, val in raw_paths.items()}
 
-        xml_dir = Path(xml_dir_raw)
-        sped_path = Path(sped_file_raw)
-
-        if not xml_dir.exists():
-            messagebox.showerror("Erro", f"O diretório de XMLs informado não existe:\n{xml_dir}")
-            return
-
-        if not sped_path.exists():
-            messagebox.showerror("Erro", f"O arquivo SPED informado não existe:\n{sped_path}")
+        invalid_paths = [str(p) for p in paths.values() if p and not p.exists()]
+        if invalid_paths:
+            messagebox.showerror("Erro", "Os seguintes arquivos/diretórios não existem:\n" + "\n".join(invalid_paths))
             return
 
         self.btn_execute.configure(state="disabled", text="⏳ Processando Auditoria...")
         self.update_idletasks()
 
         try:
-            audit_service = AuditService(xml_dir=xml_dir, sped_path=sped_path)
-
+            audit_service = AuditService(
+                nfe_dir=paths["nfe"],
+                nfce_dir=paths["nfce"],
+                sped_fiscal_path=paths["sped_fiscal"],
+                sped_cofins_path=paths["sped_cofins"]
+            )
             audit_service.run_pipeline()
 
             messagebox.showinfo(

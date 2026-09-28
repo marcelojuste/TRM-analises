@@ -1,5 +1,5 @@
 class FiscalRepository:
-    def __init__(self, conn, batch_size=1000):
+    def __init__(self, conn, batch_size=250):
         self.conn = conn
         self.batch_size = batch_size
         self.xml_batch = []
@@ -27,7 +27,7 @@ class FiscalRepository:
             return
         try:
             self.conn.executemany(
-                "INSERT INTO xml_documents VALUES (?, ?, ?, ?, ?, ?)", 
+                "INSERT OR IGNORE INTO xml_documents VALUES (?, ?, ?, ?, ?, ?)", 
                 self.xml_batch
             )
         except Exception as e:
@@ -41,7 +41,7 @@ class FiscalRepository:
             return
         try:
             self.conn.executemany(
-                "INSERT INTO sped_documents VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                "INSERT OR IGNORE INTO sped_documents VALUES (?, ?, ?, ?, ?, ?, ?)", 
                 self.sped_batch
             )
         except Exception as e:

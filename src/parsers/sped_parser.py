@@ -41,6 +41,10 @@ class SpedParser:
 
         if len(fields) < 14:
             return ()
+        
+        ind_oper = fields[2].strip() if len(fields) > 2 else ""
+        if ind_oper == "0":
+            return ()
 
         try:
             nfe_model = int(fields[5].strip()) if fields[5].strip() else 55
