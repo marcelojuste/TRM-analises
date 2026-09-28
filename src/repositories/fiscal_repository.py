@@ -49,3 +49,26 @@ class FiscalRepository:
             raise e
         finally:
             self.sped_batch.clear()
+
+    def get_xml_metrics(self) -> dict:
+        query = """
+        SELECT 
+            COUNT(*), 
+            COALESCE(SUM(total_value), 0) / 100.0 
+        FROM xml_documents
+        WHERE document_status != '02';
+        """
+        qty, val = self.conn.execute(query).fetchone()
+        return {"qty": qty, "val": val}
+
+    def get_sped_metrics(self) -> dict:
+        query = """
+        SELECT 
+            COUNT(*), 
+            COALESCE(SUM(total_value), 0) / 100.0 
+        FROM sped_documents
+        WHERE document_status != '02';
+        """
+        qty, val = self.conn.execute(query).fetchone()
+        return {"qty": qty, "val": val}
+    

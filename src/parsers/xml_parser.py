@@ -4,7 +4,6 @@ from typing import Iterator
 
 from src.models.fiscal_document import FiscalDocument
 
-
 class XmlParser:
 
     @staticmethod
@@ -21,7 +20,7 @@ class XmlParser:
         if not directory_path.exists() or not directory_path.is_dir():
             raise FileNotFoundError(f"Diretório inválido: {directory_path}")
 
-        return directory_path.rglob("*.xml")
+        return (f for f in directory_path.glob("*.xml") if f.is_file())
 
     @staticmethod
     def parse_xml(xml_path: Path | str) -> FiscalDocument | None:

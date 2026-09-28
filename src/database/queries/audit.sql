@@ -1,3 +1,13 @@
+WITH xml_filtrado AS (
+    SELECT * 
+    FROM xml_documents
+    WHERE document_status != '02'
+),
+sped_filtrado AS (
+    SELECT * 
+    FROM sped_documents
+    WHERE document_status != '02'
+)
 SELECT 
     COALESCE(x.access_key, s.access_key) AS chave_acesso,
     COALESCE(x.cnpj_emit, s.cnpj_emit) AS cnpj_emitente,
@@ -20,8 +30,8 @@ CASE
     ELSE 'OK'
 END AS status_auditoria
 
-FROM xml_documents x
-FULL OUTER JOIN sped_documents s 
+FROM xml_filtrado x
+FULL OUTER JOIN sped_filtrado s 
     ON x.access_key = s.access_key
 
 WHERE x.access_key IS NULL 
