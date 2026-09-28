@@ -10,10 +10,10 @@ O projeto foi projetado para processar grandes volumes de dados fiscais em ambie
 
 * **Processamento Out-of-Core & Streaming:** Leitura progressiva de arquivos XML via `xml.etree.ElementTree.iterparse`, evitando carregar arquivos inteiros em memória.
 * **Execução Paralela:** Leitura paralela de lotes de arquivos XML através de `concurrent.futures.ProcessPoolExecutor`.
-* **Motor Analítico OLAP descartável:** Persistência analítica ultra-rápida via **DuckDB**, configurado com limite de memória de **1 GB** e tempo de vida descartável (*Disposable Database* com limpeza de arquivos temporários ao encerrar).
+* **Motor Analítico OLAP Descartável:** Persistência analítica ultra-rápida via **DuckDB**, configurado com limite de memória de **1 GB** e tempo de vida descartável (*Disposable Database* com limpeza de arquivos na pasta `temp_files` ao encerrar).
 * **Precisão Financeira:** Todos os valores monetários são processados e armazenados em **centavos como números inteiros (`BIGINT`/`int`)**, eliminando erros de arredondamento de Ponto Flutuante (`float`).
-* **Estruturas Otimizadas:** Uso estrito de `@dataclass(slots=True, frozen=True)` para minimizar a pegada de memória do interpretador Python.
-* **Interface Gráfica Leve (GUI):** Interface moderna desenvolvida em `CustomTkinter` com visualização de métricas e prévia em tabela nativa (`ttk.Treeview`).
+* **Estruturas Otimizadas e Leves:** Manipulação direta de tuplas e estruturas de dados enxutas sem o overhead de abstrações pesadas.
+* **Interface Gráfica Leve (GUI):** Interface moderna desenvolvida em `CustomTkinter` localizada no diretório `views`, com suporte a temas, seleção de arquivos, visualização de métricas e prévia em tabela nativa (`ttk.Treeview`).
 
 ---
 
@@ -22,33 +22,47 @@ O projeto foi projetado para processar grandes volumes de dados fiscais em ambie
 ```text
 TRM-analises/
 │
+├── .github/                 # Workflows e automações CI/CD
+├── .vscode/                 # Configurações do ambiente de desenvolvimento
+│
 ├── src/
-│   ├── config/              # Padrões e variáveis globais da aplicação
-│   ├── domain/              # Modelos de dados imutáveis (dataclasses com slots)
-│   │   └── fiscal_document.py
-│   ├── database/            # Conexão, lifecycle e scripts SQL do DuckDB
-│   │   ├── database.py      # Context manager DisposableAuditDatabase
-│   │   └── queries/         # DDL (schema.sql) e queries analíticas (audit.sql)
-│   ├── repository/          # Encapsulamento de queries SQL e rotinas em lote
+│   ├── database/            # Gerenciamento de conexão DuckDB e scripts SQL
+│   │   ├── queries/         # DDL (schema.sql) e queries analíticas (audit.sql)
+│   │   └── database.py      # Context Manager (DisposableAuditDatabase)
+│   │
+│   ├── models/              # Modelos e definições de estruturas de documentos
+│   │   ├── fiscal_document.py
+│   │   └── sped_document.py
+│   │
+│   ├── outputs/             # Diretório de destino dos relatórios gerados (.xlsx)
+│   │
+│   ├── parsers/             # Parsers streaming para extração de XML e SPED
+│   │   ├── sped_parser.py
+│   │   └── xml_parser.py
+│   │
+│   ├── repositories/        # Camada de persistência e gravação em lote
 │   │   └── fiscal_repository.py
-│   ├── parsers/             # Parsers streaming para XML e SPED
-│   │   ├── xml_parser.py
-│   │   └── sped_parser.py
-│   ├── services/            # Orquestração do pipeline de auditoria e exportação
+│   │
+│   ├── services/            # Serviços de orquestração e exportação
 │   │   ├── audit_service.py
 │   │   └── excel_exporter.py
-│   ├── ui/                  # Componentes visuais CustomTkinter
-│   │   ├── app.py           # Janela principal
-│   │   ├── components/      # Cards, tabela e cabeçalhos
-│   │   └── theme/           # Cores e estilos visuais
-│   ├── app_paths.py         # Mapeamento e resolução de caminhos (AppPaths)
-│   └── main.py              # Ponto de entrada do executável/aplicação
+│   │
+│   ├── temp_files/          # Arquivos temporários e banco DuckDB descartável
+│   │
+│   ├── views/               # Interface Gráfica (GUI) em CustomTkinter
+│   │   ├── assets/          # Ícones, imagens e recursos visuais
+│   │   ├── components/      # Componentes de UI (Header, FileCard, MetricCard, ResultTable)
+│   │   └── app.py           # Janela principal da aplicação
+│   │
+│   ├── app_paths.py         # Mapeamento e resolução de caminhos imutáveis (AppPaths)
+│   └── main.py              # Ponto de entrada do sistema
 │
 ├── tests/                   # Suíte de testes unitários automatizados (pytest)
-├── pyproject.toml           # Configurações do projeto e dependências
-├── requirements.txt         # Lista de dependências Python
-├── GEMINI.md                # Diretrizes operacionais e regras do projeto
-└── README.md                # Documentação técnica do sistema
+├── .gitignore
+├── conftest.py              # Configurações globais e fixtures do pytest
+├── pyproject.toml           # Configurações do projeto e ferramentas de build
+├── Readme.md                # Documentação técnica do sistema
+└── requirements.txt         # Dependências do projeto Python
 ```
 
 ---
@@ -68,8 +82,8 @@ TRM-analises/
              │
              ▼
 ┌─────────────────────────┐
-│ FiscalDocument          │
-│ (dataclass, centavos)   │
+│ Tuplas de Dados         │
+│ (Chave, CNPJ, Centavos) │
 └────────────┬────────────┘
              │
              ▼
@@ -86,9 +100,9 @@ TRM-analises/
              │
              ▼
 ┌─────────────────────────┐
-│ Exportação Excel        │
-│ + Prévia na GUI         │
-└────────────┬────────────┘
+│ Relatório Excel         │
+│ + Prévia na GUI (Views) │
+└─────────────────────────┘
 ```
 
 ---
@@ -97,7 +111,7 @@ TRM-analises/
 
 * **Sistema Operacional:** Windows 7 SP1 (64-bit) ou superior / Linux / macOS.
 * **Python:** 3.10 ou superior.
-* **Memória RAM:** Mínimo de 4 GB (Uso da aplicação mantido em **< 1 GB**).
+* **Memória RAM:** Mínimo de 4 GB (Uso da aplicação mantido abaixo de **1 GB**).
 
 ---
 
@@ -134,7 +148,7 @@ python src/main.py
 
 ## 🧪 Suíte de Testes Automatizados
 
-O projeto utiliza `pytest` para garantir a integridade dos parsers, repositórios e serviços de exportação:
+O projeto utiliza `pytest` para validação e testes isolados dos parsers, repositórios e serviços de auditoria:
 
 ```bash
 # Executar todos os testes
