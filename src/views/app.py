@@ -90,6 +90,17 @@ class MainWindow(ctk.CTk):
         )
         self.btn_execute.pack(fill="x", ipady=2)
 
+    def _set_cards_state(self, state: str):
+        """Altera o estado (normal/disabled) dos botões em todos os cards."""
+        cards = [self.card_nfce, self.card_nfe, self.card_sped_fiscal, self.card_sped_cofins]
+        for card in cards:
+            if hasattr(card, "set_state"):
+                card.set_state(state)
+            elif hasattr(card, "btn_select"):
+                card.btn_select.configure(state=state)
+            elif hasattr(card, "button"):
+                card.button.configure(state=state)
+
     def run_audit(self):
         raw_paths = {
             "nfe": self.card_nfe.get_path(),
@@ -113,8 +124,9 @@ class MainWindow(ctk.CTk):
         if invalid_paths:
             messagebox.showerror("Erro", "Os seguintes arquivos/diretórios não existem:\n" + "\n".join(invalid_paths))
             return
-
+        
         self.btn_execute.configure(state="disabled", text="⏳ Processando Auditoria...")
+        self._set_cards_state("disabled")
         self.update_idletasks()
 
         def worker():
@@ -132,9 +144,17 @@ class MainWindow(ctk.CTk):
                     f"Auditoria concluída com sucesso!\n\nRelatório gerado em:\n{PATHS.outputs_dir.resolve()}"
                 ))
             except Exception as e:
-                self.after(0, lambda: messagebox.showerror("Erro na Auditoria", f"Ocorreu um erro durante a execução:\n{e}"))
+                error_msg = str(e)
+                self.after(0, lambda msg=error_msg: messagebox.showerror(
+                    "Erro na Auditoria", 
+                    f"Ocorreu um erro durante a execução:\n{msg}"
+                ))
             finally:
-                self.after(0, lambda: self.btn_execute.configure(state="normal", text="▶   Executar Auditoria"))
+                def restore_ui():
+                    self.btn_execute.configure(state="normal", text="▶   Executar Auditoria")
+                    self._set_cards_state("normal")
+
+                self.after(0, restore_ui)
 
         threading.Thread(target=worker, daemon=True).start()
 

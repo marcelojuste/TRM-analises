@@ -49,11 +49,14 @@ class AuditService:
             print("Total de XMLs no banco:", conn.execute("SELECT COUNT(*) FROM xml_documents;").fetchone()[0])
             print("Total de SPEDs no banco:", conn.execute("SELECT COUNT(*) FROM sped_documents;").fetchone()[0])
 
-            ExportService.export_query_to_excel( 
+            exporter = ExportService(
                 conn=conn,
                 sql_file_path=sql_query_path,
-                output_xlsx_path=output_xlsx_path
+                output_xlsx_path=output_xlsx_path,
+                enterprise_name=enterprise_name
             )
+
+            exporter.export_query_to_excel()
 
     def _extract_xmls(self) -> List[Tuple]:
         xml_paths = []
