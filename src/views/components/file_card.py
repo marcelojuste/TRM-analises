@@ -15,6 +15,7 @@ class FileSelectionCard(ctk.CTkFrame):
         self.title = title
         self.is_directory = is_directory
         self.selected_path = ""
+        self.placeholder = "Nenhuma pasta selecionada..." if self.is_directory else "Nenhum arquivo selecionado..."
 
         self._build_widgets()
 
@@ -56,23 +57,36 @@ class FileSelectionCard(ctk.CTkFrame):
         self.action_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.action_frame.pack(fill="x", padx=20, pady=(0, 16))
 
-        placeholder = "Nenhuma pasta selecionada..." if self.is_directory else "Nenhum arquivo selecionado..."
         btn_text = "Selecionar Pasta" if self.is_directory else "Selecionar Arquivo"
 
         self.entry_path = ctk.CTkEntry(
             self.action_frame,
-            placeholder_text=placeholder,
+            placeholder_text=self.placeholder,
             font=ctk.CTkFont(family="Inter", size=12),
             fg_color="#FFFFFF",
             border_color="#CBD5E1",
             border_width=1,
-            text_color="#334155",
-            placeholder_text_color="#94A3B8",
+            text_color="#94A3B8",
             corner_radius=8,
             height=38
         )
         self.entry_path.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        self.entry_path.insert(0, self.placeholder)
         self.entry_path.configure(state="readonly")
+
+        self.btn_clear = ctk.CTkButton(
+            self.action_frame,
+            text="✕",
+            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+            fg_color="#FEE2E2",
+            hover_color="#FCA5A5",
+            text_color="#991B1B",
+            width=30,
+            height=38,
+            corner_radius=8,
+            command=self.clear_selection
+        )
 
         self.btn_select = ctk.CTkButton(
             self.action_frame,
@@ -98,12 +112,32 @@ class FileSelectionCard(ctk.CTkFrame):
 
         if path:
             self.selected_path = path
-            self.entry_path.configure(state="normal")
+            self.entry_path.configure(state="normal", text_color="#334155")
             self.entry_path.delete(0, "end")
             self.entry_path.insert(0, path)
             self.entry_path.configure(state="readonly")
 
             self.lbl_status.configure(text="Selecionado", fg_color="#DCFCE7", text_color="#15803D")
 
+            self.btn_clear.pack(side="left", padx=(0, 8), before=self.btn_select)
+
+    def clear_selection(self):
+        self.selected_path = ""
+        
+        self.entry_path.configure(state="normal")
+        self.entry_path.delete(0, "end")
+        self.entry_path.configure(text_color="#94A3B8")
+        self.entry_path.insert(0, self.placeholder)
+        self.entry_path.configure(state="readonly")
+
+        self.lbl_status.configure(text="Pendente", fg_color="#E2E8F0", text_color="#64748B")
+
+        self.btn_clear.pack_forget()
+
     def get_path(self) -> str:
         return self.selected_path
+
+    def set_state(self, state: str):
+        """Habilita ou desabilita os botões durante a execução."""
+        self.btn_select.configure(state=state)
+        self.btn_clear.configure(state=state)

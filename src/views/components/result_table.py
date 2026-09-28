@@ -1,10 +1,14 @@
+import os
+import subprocess
+import sys
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import customtkinter as ctk
+from pathlib import Path
 
 
 class ResultsTableFrame(ctk.CTkFrame):
-    def __init__(self, master, **kwargs):
+    def __init__(self, master, open_excel_callback=None, **kwargs):
         super().__init__(
             master,
             fg_color="#FFFFFF",
@@ -14,17 +18,37 @@ class ResultsTableFrame(ctk.CTkFrame):
             **kwargs
         )
 
+        self.excel_path = None
+        self.open_excel_callback = open_excel_callback
+
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
+        self.header_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.header_container.grid(row=0, column=0, padx=16, pady=(12, 6), sticky="ew")
+        self.header_container.grid_columnconfigure(0, weight=1)
+
         self.lbl_title = ctk.CTkLabel(
-            self,
+            self.header_container,
             text="PRÉVIA DO RELATÓRIO GERADO",
             font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
             text_color="#64748B",
             anchor="w"
         )
-        self.lbl_title.grid(row=0, column=0, padx=16, pady=(12, 6), sticky="ew")
+        self.lbl_title.grid(row=0, column=0, sticky="w")
+
+        self.btn_open_excel = ctk.CTkButton(
+            self.header_container,
+            text="📊 Abrir Planilha Excel",
+            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+            fg_color="#10B981",
+            hover_color="#059669",
+            text_color="#FFFFFF",
+            height=28,
+            corner_radius=6,
+            command=self._on_open_excel_clicked
+        )
+        self.btn_open_excel.grid(row=0, column=1, sticky="e", padx=(10, 0))
 
         self.table_container = ctk.CTkFrame(self, fg_color="transparent")
         self.table_container.grid(row=1, column=0, padx=12, pady=(0, 12), sticky="nsew")
@@ -65,9 +89,42 @@ class ResultsTableFrame(ctk.CTkFrame):
         self.vsb.grid(row=0, column=1, sticky="ns", padx=(2, 0), pady=0)
         self.hsb.grid(row=1, column=0, sticky="ew", padx=0, pady=(2, 0))
 
-    def load_excel_data(self, columns: list, rows: list):
-        """Limpa a tabela, insere as colunas e colore as linhas de acordo com o status."""
+    def set_title_info(self, company_name: str = None):
+        if company_name and company_name.strip() and company_name.upper() != "EMPRESA_DESCONHECIDA":
+            self.lbl_title.configure(text=f"PRÉVIA DO RELATÓRIO — {company_name.strip().upper()}")
+        else:
+            self.lbl_title.configure(text="PRÉVIA DO RELATÓRIO GERADO")
+
+    def set_excel_path(self, excel_path):
+        self.excel_path = excel_path
+
+    def _on_open_excel_clicked(self):
+        if self.open_excel_callback and callable(self.open_excel_callback):
+            self.open_excel_callback(self.excel_path)
+            return
+
+        if not self.excel_path or not os.path.exists(str(self.excel_path)):
+            messagebox.showerror("Erro", "O arquivo Excel da auditoria não foi encontrado.")
+            return
+
+        try:
+            excel_str_path = str(Path(self.excel_path).resolve())
+            if sys.platform.startswith("win"):
+                os.startfile(excel_str_path)
+            elif sys.platform.startswith("darwin"):
+                subprocess.run(["open", excel_str_path], check=True)
+            else:
+                subprocess.run(["xdg-open", excel_str_path], check=True)
+        except Exception as e:
+            messagebox.showerror("Erro ao abrir planilha", f"Não foi possível abrir o arquivo Excel:\n{e}")
+
+    def load_excel_data(self, columns: list, rows: list, company_name: str = None, excel_path=None):
         self.clear()
+
+        if company_name:
+            self.set_title_info(company_name)
+        if excel_path:
+            self.set_excel_path(excel_path)
 
         clean_columns = [f"col_{i}" for i in range(len(columns))]
         self.tree["columns"] = clean_columns

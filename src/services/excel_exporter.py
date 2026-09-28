@@ -58,7 +58,6 @@ class ExportService:
         total_cols = len(columns)
         last_col_letter = get_column_letter(total_cols)
 
-        # Definição de borda fina completa para todas as células
         full_border = Border(
             left=Side(style="thin", color="E2E8F0"),
             right=Side(style="thin", color="E2E8F0"),

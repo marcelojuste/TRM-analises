@@ -78,6 +78,7 @@ class AuditService:
 
         return {
             "excel_path": output_xlsx_path,
+            "enterprise_name": enterprise_name,
             "metrics": metrics
         }
 

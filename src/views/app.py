@@ -91,6 +91,8 @@ class MainWindow(ctk.CTk):
         self.footer_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.footer_frame.pack(fill="x", padx=30, pady=(0, 16))
 
+        self.footer_frame.grid_columnconfigure((0, 1), weight=1, uniform="footer_btn")
+
         self.btn_execute = ctk.CTkButton(
             self.footer_frame,
             text="▶   Executar Auditoria",
@@ -103,6 +105,18 @@ class MainWindow(ctk.CTk):
             command=self.run_audit
         )
         self.btn_execute.pack(fill="x", ipady=2)
+
+        self.btn_clear = ctk.CTkButton(
+            self.footer_frame,
+            text="🔄   Limpar",
+            font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+            fg_color="#FEE2E2",
+            hover_color="#FCA5A5",
+            text_color="#991B1B",
+            corner_radius=8,
+            height=46,
+            command=self.reset_app
+        )
 
         self.results_table = ResultsTableFrame(self)
 
@@ -117,7 +131,6 @@ class MainWindow(ctk.CTk):
                 card.button.configure(state=state)
 
     def _update_metrics_cards(self, metrics: dict):
-        """Atualiza os valores exibidos nos MetricCards com os dados processados."""
         xml_data = metrics.get("xml", {"qty": 0, "val": 0.0})
         sped_data = metrics.get("sped", {"qty": 0, "val": 0.0})
 
@@ -167,8 +180,7 @@ class MainWindow(ctk.CTk):
         wb.close()
         return columns, data_rows
 
-    def _show_results_table(self, excel_path: Path):
-        """Carrega e exibe a tabela expandindo a janela."""
+    def _show_results_table(self, excel_path: Path, company_name: str = None):
         if not excel_path.exists():
             return
 
@@ -176,11 +188,40 @@ class MainWindow(ctk.CTk):
         if not columns:
             return
 
-        self.results_table.load_excel_data(columns, rows)
+        self.results_table.load_excel_data(
+            columns=columns, 
+            rows=rows, 
+            company_name=company_name, 
+            excel_path=excel_path
+        )
         self.results_table.pack(fill="both", expand=True, padx=30, pady=(0, 24))
 
         if self.winfo_height() < 800:
             self.geometry(f"{self.winfo_width()}x820")
+
+        self.btn_execute.pack_forget()
+        self.btn_execute.grid(row=0, column=0, padx=(0, 8), sticky="ew", ipady=2)
+        self.btn_clear.grid(row=0, column=1, padx=(8, 0), sticky="ew", ipady=2)
+
+    def reset_app(self):
+        cards = [self.card_nfce, self.card_nfe, self.card_sped_fiscal, self.card_sped_cofins]
+        for card in cards:
+            if hasattr(card, "clear_selection"):
+                card.clear_selection()
+
+        self.card_xml_qty.set_value("0")
+        self.card_xml_val.set_value("R$ 0,00")
+        self.card_sped_qty.set_value("0")
+        self.card_sped_val.set_value("R$ 0,00")
+
+        self.results_table.clear()
+        self.results_table.pack_forget()
+
+        self.btn_clear.grid_forget()
+        self.btn_execute.grid_forget()
+        self.btn_execute.pack(fill="x", ipady=2)
+
+        self.geometry("980x680")
 
     def run_audit(self):
         raw_paths = {
@@ -222,6 +263,7 @@ class MainWindow(ctk.CTk):
                 result = audit_service.run_pipeline()
 
                 excel_file = Path(result["excel_path"]) if result.get("excel_path") and Path(str(result["excel_path"])).exists() else None
+                enterprise_name = result.get("enterprise_name", "EMPRESA_DESCONHECIDA")
                 metrics = result.get("metrics", {})
 
                 self.after(0, lambda: self._update_metrics_cards(metrics))
@@ -232,7 +274,7 @@ class MainWindow(ctk.CTk):
                         excel_file = generated_files[0]
 
                 if excel_file:
-                    self.after(0, lambda: self._show_results_table(excel_file))
+                    self.after(0, lambda: self._show_results_table(excel_file, company_name=enterprise_name))
 
                 self.after(0, lambda: messagebox.showinfo(
                     "Sucesso", 
