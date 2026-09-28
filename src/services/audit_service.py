@@ -17,23 +17,41 @@ class AuditService:
     sped_cofins_path: None | Path
 
     def __init__(self, nfe_dir: None | Path, nfce_dir: None | Path, sped_fiscal_path: None | Path, sped_cofins_path: None | Path):
-        self.nfe_dir=nfe_dir
-        self.nfce_dir=nfce_dir
-        self.sped_fiscal_path=sped_fiscal_path
-        self.sped_cofins_path=sped_cofins_path
+        self.nfe_dir = nfe_dir
+        self.nfce_dir = nfce_dir
+        self.sped_fiscal_path = sped_fiscal_path
+        self.sped_cofins_path = sped_cofins_path
 
-    def run_pipeline(self) -> None:
-        with SpedParser(self.sped_fiscal_path) as sped_fiscal_parser:
-            sped_fiscal_notes = sped_fiscal_parser.fiscal_notes or []
-            enterprise_name = sped_fiscal_parser.get_enterprise() or "EMPRESA_DESCONHECIDA"
+    def run_pipeline(self) -> dict:
+        enterprise_name = "EMPRESA_DESCONHECIDA"
+        
+        sped_fiscal_notes = []
+        if self.sped_fiscal_path and self.sped_fiscal_path.exists():
+            with SpedParser(self.sped_fiscal_path) as sped_fiscal_parser:
+                sped_fiscal_notes = sped_fiscal_parser.fiscal_notes or []
+                found_name = sped_fiscal_parser.get_enterprise()
+                if found_name and found_name != "EMPRESA_DESCONHECIDA":
+                    enterprise_name = found_name
 
-        with SpedParser(self.sped_cofins_path) as sped_cofins_parser:
-            sped_cofins_notes = sped_cofins_parser.fiscal_notes or []
+        sped_cofins_notes = []
+        if self.sped_cofins_path and self.sped_cofins_path.exists():
+            with SpedParser(self.sped_cofins_path) as sped_cofins_parser:
+                sped_cofins_notes = sped_cofins_parser.fiscal_notes or []
+                # Se ainda não identificou a empresa pelo Fiscal, pega do Contribuições
+                if enterprise_name == "EMPRESA_DESCONHECIDA":
+                    found_name = sped_cofins_parser.get_enterprise()
+                    if found_name and found_name != "EMPRESA_DESCONHECIDA":
+                        enterprise_name = found_name
 
         xml_notes = self._extract_xmls()
 
         sql_query_path = PATHS.queries_dir / "audit.sql"
         output_xlsx_path = PATHS.outputs_dir / f"relatorio_auditoria_{enterprise_name}.xlsx"
+
+        metrics = {
+            "xml": {"qty": 0, "val": 0.0},
+            "sped": {"qty": 0, "val": 0.0}
+        }
 
         with DisposableAuditDatabase(enterprise=enterprise_name) as conn:
             with FiscalRepository(conn, batch_size=1000) as repo:
@@ -46,8 +64,9 @@ class AuditService:
                 if sped_cofins_notes:
                     repo.add_sped(sped_cofins_notes)
 
-            print("Total de XMLs no banco:", conn.execute("SELECT COUNT(*) FROM xml_documents;").fetchone()[0])
-            print("Total de SPEDs no banco:", conn.execute("SELECT COUNT(*) FROM sped_documents;").fetchone()[0])
+            with FiscalRepository(conn) as repo:
+                metrics["xml"] = repo.get_xml_metrics()
+                metrics["sped"] = repo.get_sped_metrics()
 
             exporter = ExportService(
                 conn=conn,
@@ -57,6 +76,11 @@ class AuditService:
             )
 
             exporter.export_query_to_excel()
+
+        return {
+            "excel_path": output_xlsx_path,
+            "metrics": metrics
+        }
 
     def _extract_xmls(self) -> List[Tuple]:
         xml_paths = []

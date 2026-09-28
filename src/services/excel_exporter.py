@@ -66,9 +66,6 @@ class ExportService:
             bottom=Side(style="thin", color="E2E8F0")
         )
 
-        # -------------------------------------------------------------
-        # 1. BANNER SUPERIOR
-        # -------------------------------------------------------------
         ws.merge_cells(f"A1:{last_col_letter}1")
         title_cell = ws["A1"]
         title_cell.value = "TRM Análises — RELATÓRIO DE AUDITORIA FISCAL"
@@ -77,7 +74,6 @@ class ExportService:
         title_cell.alignment = Alignment(horizontal="left", vertical="center", indent=1)
         ws.row_dimensions[1].height = 36
 
-        # Subtítulo
         ws.merge_cells(f"A2:{last_col_letter}2")
         subtitle_cell = ws["A2"]
         subtitle_cell.value = f"EMPRESA AUDITADA: {self.enterprise_name.upper()}"
@@ -86,9 +82,6 @@ class ExportService:
         subtitle_cell.alignment = Alignment(horizontal="left", vertical="center", indent=1)
         ws.row_dimensions[2].height = 24
 
-        # -------------------------------------------------------------
-        # 2. CABEÇALHO DA TABELA
-        # -------------------------------------------------------------
         header_font = Font(name="Inter", size=10, bold=True, color="FFFFFF")
         header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
         
@@ -103,9 +96,6 @@ class ExportService:
 
         ws.row_dimensions[3].height = 28
 
-        # -------------------------------------------------------------
-        # 3. DADOS COM BORDAS EM TODOS OS LADOS
-        # -------------------------------------------------------------
         base_font = Font(name="Inter", size=10, color="0F172A")
 
         align_left = Alignment(horizontal="left", vertical="center")
@@ -128,14 +118,12 @@ class ExportService:
                     col_name = columns[col_idx - 1].lower()
                     cell = ws.cell(row=current_row, column=col_idx)
                     
-                    # Aplica a borda completa em todos os quatro lados
                     cell.border = full_border
                     cell.font = row_font if row_font else base_font
 
                     if row_fill:
                         cell.fill = row_fill
 
-                    # Converte valores de centavos para reais e formata como moeda
                     if "valor" in col_name and isinstance(val, (int, float)):
                         cell.value = val / 100.0 if isinstance(val, int) else val
                         cell.number_format = 'R$ #,##0.00'
@@ -155,9 +143,6 @@ class ExportService:
 
         last_data_row = max(current_row - 1, 4)
 
-        # -------------------------------------------------------------
-        # 4. TABELA E DIMENSIONAMENTO
-        # -------------------------------------------------------------
         tab_range = f"A3:{last_col_letter}{last_data_row}"
         tab = Table(displayName="TabelaAuditoriaTRM", ref=tab_range)
         

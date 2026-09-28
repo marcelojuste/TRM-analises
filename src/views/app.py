@@ -5,9 +5,12 @@ from tkinter import messagebox
 import customtkinter as ctk
 from PIL import Image, ImageTk
 import threading
+import openpyxl
 
 from src.views.components.header import HeaderFrame
 from src.views.components.file_card import FileSelectionCard
+from src.views.components.metric_card import MetricCard
+from src.views.components.result_table import ResultsTableFrame
 from src.app_paths import PATHS
 from src.services.audit_service import AuditService
 
@@ -21,8 +24,8 @@ class MainWindow(ctk.CTk):
         self._set_windows_app_id()
 
         self.title("TRM Análises - Auditoria Fiscal")
-        self.geometry("980x620")
-        self.minsize(900, 580)
+        self.geometry("980x680")
+        self.minsize(900, 650)
         self.configure(fg_color="#F8FAFC")
 
         self._set_app_icon()
@@ -38,7 +41,6 @@ class MainWindow(ctk.CTk):
 
     def _set_app_icon(self):
         icon_path = PATHS.icons_dir / "iconTRM.ico"
-        
         if icon_path.exists():
             try:
                 self.iconbitmap(str(icon_path))
@@ -46,27 +48,23 @@ class MainWindow(ctk.CTk):
                 img = Image.open(icon_path)
                 photo = ImageTk.PhotoImage(img)
                 self.iconphoto(False, photo)
-        else:
-            print(f"Aviso: Ícone não encontrado em {icon_path}")
 
     def _build_widgets(self):
         self.header = HeaderFrame(self)
         self.header.pack(fill="x", padx=30, pady=(24, 20))
 
         self.divider = ctk.CTkFrame(self, height=1, fg_color="#E2E8F0")
-        self.divider.pack(fill="x", padx=30, pady=(0, 24))
+        self.divider.pack(fill="x", padx=30, pady=(0, 20))
 
         self.grid_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.grid_container.pack(fill="both", expand=True, padx=30)
-
+        self.grid_container.pack(fill="x", padx=30, pady=(0, 16))
         self.grid_container.grid_columnconfigure((0, 1), weight=1, uniform="card")
-        self.grid_container.grid_rowconfigure((0, 1), weight=0)
 
         self.card_nfce = FileSelectionCard(self.grid_container, title="NFC-e (XMLs)", is_directory=True)
-        self.card_nfce.grid(row=0, column=0, padx=(0, 10), pady=(0, 20), sticky="ew")
+        self.card_nfce.grid(row=0, column=0, padx=(0, 10), pady=(0, 15), sticky="ew")
 
         self.card_nfe = FileSelectionCard(self.grid_container, title="NF-e (XMLs)", is_directory=True)
-        self.card_nfe.grid(row=0, column=1, padx=(10, 0), pady=(0, 20), sticky="ew")
+        self.card_nfe.grid(row=0, column=1, padx=(10, 0), pady=(0, 15), sticky="ew")
 
         self.card_sped_fiscal = FileSelectionCard(self.grid_container, title="SPED Fiscal (.txt)", is_directory=False)
         self.card_sped_fiscal.grid(row=1, column=0, padx=(0, 10), pady=0, sticky="ew")
@@ -74,8 +72,24 @@ class MainWindow(ctk.CTk):
         self.card_sped_cofins = FileSelectionCard(self.grid_container, title="SPED Contribuições (.txt)", is_directory=False)
         self.card_sped_cofins.grid(row=1, column=1, padx=(10, 0), pady=0, sticky="ew")
 
+        self.metrics_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.metrics_container.pack(fill="x", padx=30, pady=(0, 16))
+        self.metrics_container.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="metric")
+
+        self.card_xml_qty = MetricCard(self.metrics_container, title="Qtd. XMLs", value="0", subtitle="NF-e + NFC-e")
+        self.card_xml_qty.grid(row=0, column=0, padx=(0, 6), sticky="ew")
+
+        self.card_xml_val = MetricCard(self.metrics_container, title="Total XMLs", value="R$ 0,00", subtitle="Soma dos XMLs")
+        self.card_xml_val.grid(row=0, column=1, padx=6, sticky="ew")
+
+        self.card_sped_qty = MetricCard(self.metrics_container, title="Linhas SPED", value="0", subtitle="Registros processados")
+        self.card_sped_qty.grid(row=0, column=2, padx=6, sticky="ew")
+
+        self.card_sped_val = MetricCard(self.metrics_container, title="Total SPED", value="R$ 0,00", subtitle="Soma do SPED")
+        self.card_sped_val.grid(row=0, column=3, padx=(6, 0), sticky="ew")
+
         self.footer_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.footer_frame.pack(fill="x", padx=30, pady=30)
+        self.footer_frame.pack(fill="x", padx=30, pady=(0, 16))
 
         self.btn_execute = ctk.CTkButton(
             self.footer_frame,
@@ -90,8 +104,9 @@ class MainWindow(ctk.CTk):
         )
         self.btn_execute.pack(fill="x", ipady=2)
 
+        self.results_table = ResultsTableFrame(self)
+
     def _set_cards_state(self, state: str):
-        """Altera o estado (normal/disabled) dos botões em todos os cards."""
         cards = [self.card_nfce, self.card_nfe, self.card_sped_fiscal, self.card_sped_cofins]
         for card in cards:
             if hasattr(card, "set_state"):
@@ -100,6 +115,72 @@ class MainWindow(ctk.CTk):
                 card.btn_select.configure(state=state)
             elif hasattr(card, "button"):
                 card.button.configure(state=state)
+
+    def _update_metrics_cards(self, metrics: dict):
+        """Atualiza os valores exibidos nos MetricCards com os dados processados."""
+        xml_data = metrics.get("xml", {"qty": 0, "val": 0.0})
+        sped_data = metrics.get("sped", {"qty": 0, "val": 0.0})
+
+        xml_qty = xml_data.get("qty", 0)
+        xml_val = xml_data.get("val", 0.0)
+        sped_qty = sped_data.get("qty", 0)
+        sped_val = sped_data.get("val", 0.0)
+
+        formatted_xml_qty = f"{xml_qty:,}".replace(",", ".")
+        formatted_xml_val = f"R$ {xml_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        formatted_sped_qty = f"{sped_qty:,}".replace(",", ".")
+        formatted_sped_val = f"R$ {sped_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        self.card_xml_qty.set_value(formatted_xml_qty)
+        self.card_xml_val.set_value(formatted_xml_val)
+        self.card_sped_qty.set_value(formatted_sped_qty)
+        self.card_sped_val.set_value(formatted_sped_val)
+
+    def _read_generated_excel(self, excel_path: Path, max_rows: int = 100):
+        wb = openpyxl.load_workbook(excel_path, read_only=False, data_only=True)
+        sheet = wb.active
+
+        columns = []
+        data_rows = []
+
+        header_row_idx = 3
+        for col_idx in range(1, sheet.max_column + 1):
+            val = sheet.cell(row=header_row_idx, column=col_idx).value
+            columns.append(str(val) if val is not None else f"COLUNA_{col_idx}")
+
+        start_data_row = 4
+        for r_idx in range(start_data_row, min(sheet.max_row + 1, start_data_row + max_rows)):
+            row_vals = []
+            for c_idx in range(1, len(columns) + 1):
+                cell = sheet.cell(row=r_idx, column=c_idx)
+                val = cell.value
+
+                if isinstance(val, (int, float)) and "valor" in str(columns[c_idx-1]).lower():
+                    val = f"R$ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+                row_vals.append(val)
+
+            if any(val is not None for val in row_vals):
+                data_rows.append(row_vals)
+
+        wb.close()
+        return columns, data_rows
+
+    def _show_results_table(self, excel_path: Path):
+        """Carrega e exibe a tabela expandindo a janela."""
+        if not excel_path.exists():
+            return
+
+        columns, rows = self._read_generated_excel(excel_path)
+        if not columns:
+            return
+
+        self.results_table.load_excel_data(columns, rows)
+        self.results_table.pack(fill="both", expand=True, padx=30, pady=(0, 24))
+
+        if self.winfo_height() < 800:
+            self.geometry(f"{self.winfo_width()}x820")
 
     def run_audit(self):
         raw_paths = {
@@ -124,7 +205,7 @@ class MainWindow(ctk.CTk):
         if invalid_paths:
             messagebox.showerror("Erro", "Os seguintes arquivos/diretórios não existem:\n" + "\n".join(invalid_paths))
             return
-        
+
         self.btn_execute.configure(state="disabled", text="⏳ Processando Auditoria...")
         self._set_cards_state("disabled")
         self.update_idletasks()
@@ -137,7 +218,21 @@ class MainWindow(ctk.CTk):
                     sped_fiscal_path=paths["sped_fiscal"],
                     sped_cofins_path=paths["sped_cofins"]
                 )
-                audit_service.run_pipeline()
+                
+                result = audit_service.run_pipeline()
+
+                excel_file = Path(result["excel_path"]) if result.get("excel_path") and Path(str(result["excel_path"])).exists() else None
+                metrics = result.get("metrics", {})
+
+                self.after(0, lambda: self._update_metrics_cards(metrics))
+
+                if not excel_file:
+                    generated_files = sorted(PATHS.outputs_dir.glob("*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True)
+                    if generated_files:
+                        excel_file = generated_files[0]
+
+                if excel_file:
+                    self.after(0, lambda: self._show_results_table(excel_file))
 
                 self.after(0, lambda: messagebox.showinfo(
                     "Sucesso", 
