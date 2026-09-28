@@ -4,6 +4,7 @@ from pathlib import Path
 from tkinter import messagebox
 import customtkinter as ctk
 from PIL import Image, ImageTk
+import threading
 
 from src.views.components.header import HeaderFrame
 from src.views.components.file_card import FileSelectionCard
@@ -116,25 +117,26 @@ class MainWindow(ctk.CTk):
         self.btn_execute.configure(state="disabled", text="⏳ Processando Auditoria...")
         self.update_idletasks()
 
-        try:
-            audit_service = AuditService(
-                nfe_dir=paths["nfe"],
-                nfce_dir=paths["nfce"],
-                sped_fiscal_path=paths["sped_fiscal"],
-                sped_cofins_path=paths["sped_cofins"]
-            )
-            audit_service.run_pipeline()
+        def worker():
+            try:
+                audit_service = AuditService(
+                    nfe_dir=paths["nfe"],
+                    nfce_dir=paths["nfce"],
+                    sped_fiscal_path=paths["sped_fiscal"],
+                    sped_cofins_path=paths["sped_cofins"]
+                )
+                audit_service.run_pipeline()
 
-            messagebox.showinfo(
-                "Sucesso", 
-                f"Auditoria concluída com sucesso!\n\nRelatório gerado em:\n{PATHS.outputs_dir.resolve()}"
-            )
+                self.after(0, lambda: messagebox.showinfo(
+                    "Sucesso", 
+                    f"Auditoria concluída com sucesso!\n\nRelatório gerado em:\n{PATHS.outputs_dir.resolve()}"
+                ))
+            except Exception as e:
+                self.after(0, lambda: messagebox.showerror("Erro na Auditoria", f"Ocorreu um erro durante a execução:\n{e}"))
+            finally:
+                self.after(0, lambda: self.btn_execute.configure(state="normal", text="▶   Executar Auditoria"))
 
-        except Exception as e:
-            messagebox.showerror("Erro na Auditoria", f"Ocorreu um erro durante a execução:\n{e}")
-
-        finally:
-            self.btn_execute.configure(state="normal", text="▶   Executar Auditoria")
+        threading.Thread(target=worker, daemon=True).start()
 
 
 if __name__ == "__main__":

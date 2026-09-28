@@ -80,42 +80,39 @@ class SpedParser:
         if not self.file_path or not self.file_path.exists():
             return
 
-        lines = []
         for encoding in ['latin-1', 'utf-8', 'utf-8-sig']:
             try:
                 with open(self.file_path, 'r', encoding=encoding) as f:
-                    lines = f.readlines()
-                break
+                    for line in f:
+                        line_str = line.strip()
+                        if not line_str:
+                            continue
+
+                        if line_str.startswith('|0000|'):
+                            self._parse_0000(line_str)
+
+                        elif line_str.startswith('|C100|'):
+                            parsed_c100 = self._parse_C100(line_str)
+                            if not parsed_c100:
+                                continue
+
+                            nfe_model, document_status, access_key, emission_date, total_value = parsed_c100
+
+                            fiscal_note = SpedDocument(
+                                access_key=access_key,
+                                cnpj_emit=self.cnpj_emit,
+                                total_value=total_value,
+                                emission_date=emission_date,
+                                nfe_model=nfe_model,
+                                document_status=document_status,
+                                sped_type=self.sped_type
+                            )
+
+                            self.fiscal_notes.append(fiscal_note.to_tuple())
+                            yield fiscal_note
+                break 
             except (UnicodeDecodeError, Exception):
                 continue
-
-        for line in lines:
-            line_str = line.strip()
-            if not line_str:
-                continue
-
-            if line_str.startswith('|0000|'):
-                self._parse_0000(line_str)
-
-            elif line_str.startswith('|C100|'):
-                parsed_c100 = self._parse_C100(line_str)
-                if not parsed_c100:
-                    continue
-
-                nfe_model, document_status, access_key, emission_date, total_value = parsed_c100
-
-                fiscal_note = SpedDocument(
-                    access_key=access_key,
-                    cnpj_emit=self.cnpj_emit,
-                    total_value=total_value,
-                    emission_date=emission_date,
-                    nfe_model=nfe_model,
-                    document_status=document_status,
-                    sped_type=self.sped_type
-                )
-
-                self.fiscal_notes.append(fiscal_note.to_tuple())
-                yield fiscal_note
 
     def __enter__(self):
         list(self._parse_sped())

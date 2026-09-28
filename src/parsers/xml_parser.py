@@ -82,3 +82,8 @@ class XmlParser:
             nfe_model=nfe_model,
             document_status=document_status,
         )
+
+    @staticmethod
+    def parse_xml_to_tuple(xml_path: Path) -> tuple | None:
+        doc = XmlParser.parse_xml(xml_path)
+        return doc.to_tuple() if doc else None

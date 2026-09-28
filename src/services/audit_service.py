@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Tuple
+from concurrent.futures import ProcessPoolExecutor
 
 from src.app_paths import PATHS
 from src.database.database import DisposableAuditDatabase
@@ -55,18 +56,22 @@ class AuditService:
             )
 
     def _extract_xmls(self) -> List[Tuple]:
-        xml_tuples = []
+        xml_paths = []
 
         if self.nfe_dir:
-            for file_path in XmlParser.get_xml_files(self.nfe_dir):
-                fiscal_doc = XmlParser.parse_xml(file_path)
-                if fiscal_doc:
-                    xml_tuples.append(fiscal_doc.to_tuple())
+            xml_paths.extend(XmlParser.get_xml_files(self.nfe_dir))
 
         if self.nfce_dir:
-            for file_path in XmlParser.get_xml_files(self.nfce_dir):
-                fiscal_doc = XmlParser.parse_xml(file_path)
-                if fiscal_doc:
-                    xml_tuples.append(fiscal_doc.to_tuple())
+            xml_paths.extend(XmlParser.get_xml_files(self.nfce_dir))
+
+        if not xml_paths:
+            return []
+
+        xml_tuples = []
+        with ProcessPoolExecutor() as executor:
+            results = executor.map(XmlParser.parse_xml_to_tuple, xml_paths, chunksize=500)
+            for res in results:
+                if res:
+                    xml_tuples.append(res)
 
         return xml_tuples
