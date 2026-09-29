@@ -12,7 +12,7 @@ from src.views.components.file_card import FileSelectionCard
 from src.views.components.metric_card import MetricCard
 from src.views.components.result_table import ResultsTableFrame
 from src.app_paths import PATHS
-from src.services.audit_service import AuditService
+from src.services.audit_service import AuditService, NoXmlsFoundException, NoSpedRecordsFoundException
 
 ctk.set_appearance_mode("Light")
 
@@ -28,7 +28,6 @@ class MainWindow(ctk.CTk):
         self.minsize(900, 650)
         self.configure(fg_color="#F8FAFC")
 
-        # Estado de execução e controle de thread
         self.is_running = False
         self.cancel_event = threading.Event()
         self.audit_thread = None
@@ -132,7 +131,6 @@ class MainWindow(ctk.CTk):
         self.results_table = ResultsTableFrame(self)
 
     def _set_ui_processing_state(self, is_processing: bool):
-        """Alterna a UI entre modo de Execução/Processamento e Pronto."""
         self.is_running = is_processing
         enabled = not is_processing
 
@@ -144,7 +142,6 @@ class MainWindow(ctk.CTk):
         if is_processing:
             self.btn_execute.configure(state="disabled", text="⏳ Processando Auditoria...")
             
-            # Transforma o botão Limpar em Cancelar Operação
             self.btn_clear.configure(
                 text="🛑   Cancelar Operação",
                 fg_color="#EF4444",
@@ -153,7 +150,6 @@ class MainWindow(ctk.CTk):
                 state="normal"
             )
 
-            # Garante que o botão Cancelar esteja visível na interface durante a execução
             if not self.btn_clear.winfo_ismapped():
                 self.btn_execute.pack_forget()
                 self.btn_execute.grid(row=0, column=0, padx=(0, 8), sticky="ew", ipady=2)
@@ -161,7 +157,6 @@ class MainWindow(ctk.CTk):
         else:
             self.btn_execute.configure(state="normal", text="▶   Executar Auditoria")
             
-            # Restaura o botão para o modo Limpar Padrão
             self.btn_clear.configure(
                 text="🔄   Limpar",
                 fg_color="#FEE2E2",
@@ -171,20 +166,17 @@ class MainWindow(ctk.CTk):
             )
 
     def _on_clear_or_cancel_clicked(self):
-        """Handler do botão dinâmico (Limpar / Cancelar Operação)."""
         if self.is_running:
             self.cancel_audit()
         else:
             self.reset_app()
 
     def cancel_audit(self):
-        """Sinaliza o cancelamento da operação."""
         if self.is_running:
             self.cancel_event.set()
             self.btn_clear.configure(state="disabled", text="⏳ Cancelando...")
 
     def _cleanup_temp_files(self):
-        """Exclui arquivos temporários residuais ou incompletos na pasta de saída."""
         try:
             if PATHS.outputs_dir.exists():
                 for temp_file in PATHS.outputs_dir.glob("*.tmp"):
@@ -269,17 +261,48 @@ class MainWindow(ctk.CTk):
         has_xml = any([raw_paths["nfe"], raw_paths["nfce"]])
         has_sped = any([raw_paths["sped_fiscal"], raw_paths["sped_cofins"]])
 
-        if not (has_xml and has_sped):
-            msg = "Por favor, selecione ao menos um diretório de XMLs (NF-e ou NFC-e)." if not has_xml \
-                else "Por favor, selecione ao menos um arquivo SPED (.txt)."
-            messagebox.showwarning("Aviso", msg)
+        if not has_xml and not has_sped:
+            messagebox.showwarning(
+                "Seleção Insuficiente", 
+                "Nenhum arquivo ou diretório foi selecionado.\n\nPor favor, informe ao menos uma pasta de XMLs e um arquivo SPED para realizar a auditoria."
+            )
+            return
+
+        if not has_xml:
+            messagebox.showwarning(
+                "XMLs Não Selecionados", 
+                "Por favor, selecione ao menos um diretório de XMLs (NF-e ou NFC-e)."
+            )
+            return
+
+        if not has_sped:
+            messagebox.showwarning(
+                "SPED Não Selecionado", 
+                "Por favor, selecione ao menos um arquivo SPED (.txt)."
+            )
             return
 
         paths = {key: Path(val) if val else None for key, val in raw_paths.items()}
 
         invalid_paths = [str(p) for p in paths.values() if p and not p.exists()]
         if invalid_paths:
-            messagebox.showerror("Erro", "Os seguintes arquivos/diretórios não existem:\n" + "\n".join(invalid_paths))
+            messagebox.showerror(
+                "Caminho Inexistente", 
+                "Os seguintes arquivos/diretórios não existem:\n\n" + "\n".join(f"• {p}" for p in invalid_paths)
+            )
+            return
+
+        invalid_extensions = []
+        for key in ["sped_fiscal", "sped_cofins"]:
+            p = paths[key]
+            if p and p.suffix.lower() != ".txt":
+                invalid_extensions.append(f"{p.name} (esperado .txt)")
+
+        if invalid_extensions:
+            messagebox.showerror(
+                "Formato Inválido",
+                "Os arquivos do SPED devem ser arquivos de texto (.txt):\n\n" + "\n".join(f"• {item}" for item in invalid_extensions)
+            )
             return
 
         self.cancel_event.clear()
@@ -294,7 +317,7 @@ class MainWindow(ctk.CTk):
                     nfce_dir=paths["nfce"],
                     sped_fiscal_path=paths["sped_fiscal"],
                     sped_cofins_path=paths["sped_cofins"],
-                    cancel_event=self.cancel_event # Repassa o evento de cancelamento
+                    cancel_event=self.cancel_event
                 )
                 
                 result = audit_service.run_pipeline()
@@ -323,6 +346,25 @@ class MainWindow(ctk.CTk):
 
             except InterruptedException:
                 cancelled = True
+            except NoXmlsFoundException as nxe:
+                self.after(0, lambda msg=str(nxe): messagebox.showwarning(
+                    "XMLs Não Encontrados", 
+                    f"Não foi possível encontrar os arquivos XML.\n\n{msg}"
+                ))
+            except NoSpedRecordsFoundException as nse:
+                self.after(0, lambda msg=str(nse): messagebox.showwarning(
+                    "Registros SPED Não Encontrados", 
+                    f"Não foi possível encontrar os registros SPED.\n\n{msg}"
+                ))
+            except PermissionError as pe:
+                self.after(0, lambda msg=str(pe): messagebox.showerror("Arquivo em Uso", msg))
+            except FileNotFoundError as fnf:
+                self.after(0, lambda msg=str(fnf): messagebox.showerror("Arquivo Não Encontrado", f"Falha ao acessar o arquivo:\n{msg}"))
+            except UnicodeDecodeError:
+                self.after(0, lambda: messagebox.showerror(
+                    "Erro de Codificação", 
+                    "Falha ao ler um dos arquivos SPED. Verifique se o arquivo está salvo na codificação correta (UTF-8 ou ISO-8859-1)."
+                ))
             except Exception as e:
                 if self.cancel_event.is_set():
                     cancelled = True
@@ -330,7 +372,7 @@ class MainWindow(ctk.CTk):
                     error_msg = str(e)
                     self.after(0, lambda msg=error_msg: messagebox.showerror(
                         "Erro na Auditoria", 
-                        f"Ocorreu um erro durante a execução:\n{msg}"
+                        f"Ocorreu um erro durante a execução:\n\n{msg}"
                     ))
             finally:
                 if cancelled or self.cancel_event.is_set():
@@ -364,7 +406,6 @@ class MainWindow(ctk.CTk):
 
 
 class InterruptedException(Exception):
-    """Exceção customizada para interrupção graciosa do serviço."""
     pass
 
 

@@ -15,7 +15,14 @@ from src.services.excel_exporter import ExportService
 
 
 class InterruptedException(Exception):
-    """Exceção para sinalizar o cancelamento manual da operação."""
+    pass
+
+
+class NoXmlsFoundException(Exception):
+    pass
+
+
+class NoSpedRecordsFoundException(Exception):
     pass
 
 
@@ -40,7 +47,6 @@ class AuditService:
         self.cancel_event = cancel_event
 
     def check_cancellation(self):
-        """Lança uma exceção se a interface solicitou o cancelamento."""
         if self.cancel_event and self.cancel_event.is_set():
             raise InterruptedException("Operação cancelada pelo usuário.")
 
@@ -69,6 +75,9 @@ class AuditService:
         self.check_cancellation()
         xml_notes = self._extract_xmls()
 
+        if not xml_notes:
+            raise NoXmlsFoundException("Não foi possível encontrar os arquivos XML nos diretórios selecionados.")
+
         sql_query_path = PATHS.queries_dir / "audit.sql"
         output_xlsx_path = PATHS.outputs_dir / f"relatorio_auditoria_{enterprise_name}.xlsx"
 
@@ -76,6 +85,8 @@ class AuditService:
             "xml": {"qty": 0, "val": 0.0},
             "sped": {"qty": 0, "val": 0.0}
         }
+
+        sped_records_count = 0
 
         with DisposableAuditDatabase(enterprise=enterprise_name) as conn:
             with FiscalRepository(conn, batch_size=250) as repo:
@@ -88,12 +99,17 @@ class AuditService:
                         for sped_tuple in sped_fiscal_parser.parse_sped():
                             self.check_cancellation()
                             repo.add_sped([sped_tuple])
+                            sped_records_count += 1
 
                 if self.sped_cofins_path and self.sped_cofins_path.exists():
                     with SpedParser(self.sped_cofins_path) as sped_cofins_parser:
                         for sped_tuple in sped_cofins_parser.parse_sped():
                             self.check_cancellation()
                             repo.add_sped([sped_tuple])
+                            sped_records_count += 1
+
+            if sped_records_count == 0:
+                raise NoSpedRecordsFoundException("Não foi possível encontrar os registros SPED nos arquivos selecionados.")
 
             self.check_cancellation()
 
