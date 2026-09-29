@@ -1,8 +1,16 @@
 import customtkinter as ctk
 from tkinter import filedialog
+from typing import Callable, Optional
 
 class FileSelectionCard(ctk.CTkFrame):
-    def __init__(self, master, title: str, is_directory: bool = False, **kwargs):
+    def __init__(
+        self, 
+        master, 
+        title: str, 
+        is_directory: bool = False, 
+        on_change: Optional[Callable[[str], None]] = None,
+        **kwargs
+    ):
         super().__init__(
             master, 
             fg_color="#F1F5F9", 
@@ -14,8 +22,10 @@ class FileSelectionCard(ctk.CTkFrame):
         
         self.title = title
         self.is_directory = is_directory
-        self.selected_path = ""
+        self.on_change = on_change
+        
         self.placeholder = "Nenhuma pasta selecionada..." if self.is_directory else "Nenhum arquivo selecionado..."
+        self.path_var = ctk.StringVar(value="")
 
         self._build_widgets()
 
@@ -28,7 +38,7 @@ class FileSelectionCard(ctk.CTkFrame):
 
         self.lbl_icon = ctk.CTkLabel(
             self.title_left, 
-            text="📄", 
+            text="📁" if self.is_directory else "📄", 
             font=ctk.CTkFont(size=14),
             text_color="#2B7FFF"
         )
@@ -59,9 +69,8 @@ class FileSelectionCard(ctk.CTkFrame):
 
         btn_text = "Selecionar Pasta" if self.is_directory else "Selecionar Arquivo"
 
-        self.entry_path = ctk.CTkEntry(
+        self.entry_display = ctk.CTkEntry(
             self.action_frame,
-            placeholder_text=self.placeholder,
             font=ctk.CTkFont(family="Inter", size=12),
             fg_color="#FFFFFF",
             border_color="#CBD5E1",
@@ -70,11 +79,8 @@ class FileSelectionCard(ctk.CTkFrame):
             corner_radius=8,
             height=38
         )
-        self.entry_path.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.entry_display.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
-        self.entry_path.insert(0, self.placeholder)
-        self.entry_path.configure(state="readonly")
-
         self.btn_clear = ctk.CTkButton(
             self.action_frame,
             text="✕",
@@ -101,6 +107,8 @@ class FileSelectionCard(ctk.CTkFrame):
         )
         self.btn_select.pack(side="right")
 
+        self._update_ui_state("")
+
     def _open_dialog(self):
         if self.is_directory:
             path = filedialog.askdirectory(title=f"Selecionar Pasta para {self.title}")
@@ -111,33 +119,36 @@ class FileSelectionCard(ctk.CTkFrame):
             )
 
         if path:
-            self.selected_path = path
-            self.entry_path.configure(state="normal", text_color="#334155")
-            self.entry_path.delete(0, "end")
-            self.entry_path.insert(0, path)
-            self.entry_path.configure(state="readonly")
+            self.set_path(path)
 
-            self.lbl_status.configure(text="Selecionado", fg_color="#DCFCE7", text_color="#15803D")
-
-            self.btn_clear.pack(side="left", padx=(0, 8), before=self.btn_select)
+    def set_path(self, path: str):
+        self.path_var.set(path)
+        self._update_ui_state(path)
+        if self.on_change and callable(self.on_change):
+            self.on_change(path)
 
     def clear_selection(self):
-        self.selected_path = ""
-        
-        self.entry_path.configure(state="normal")
-        self.entry_path.delete(0, "end")
-        self.entry_path.configure(text_color="#94A3B8")
-        self.entry_path.insert(0, self.placeholder)
-        self.entry_path.configure(state="readonly")
+        self.set_path("")
 
-        self.lbl_status.configure(text="Pendente", fg_color="#E2E8F0", text_color="#64748B")
+    def _update_ui_state(self, path: str):
+        self.entry_display.configure(state="normal")
+        self.entry_display.delete(0, "end")
 
-        self.btn_clear.pack_forget()
+        if path:
+            self.entry_display.insert(0, path)
+            self.entry_display.configure(text_color="#334155", state="readonly")
+            self.lbl_status.configure(text="Selecionado", fg_color="#DCFCE7", text_color="#15803D")
+            self.btn_clear.pack(side="left", padx=(0, 8), before=self.btn_select)
+        else:
+            self.entry_display.insert(0, self.placeholder)
+            self.entry_display.configure(text_color="#94A3B8", state="readonly")
+            self.lbl_status.configure(text="Pendente", fg_color="#E2E8F0", text_color="#64748B")
+            self.btn_clear.pack_forget()
 
     def get_path(self) -> str:
-        return self.selected_path
+        return self.path_var.get()
 
-    def set_state(self, state: str):
-        """Habilita ou desabilita os botões durante a execução."""
+    def set_enabled(self, enabled: bool):
+        state = "normal" if enabled else "disabled"
         self.btn_select.configure(state=state)
         self.btn_clear.configure(state=state)
