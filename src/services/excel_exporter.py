@@ -38,6 +38,17 @@ class ExportService:
 
         return None, None
 
+    def _format_nfe_model(self, model_val) -> str:
+        """Converte o código do modelo fiscal para a sigla correspondente."""
+        val_str = str(model_val).strip() if model_val is not None else ""
+        
+        if val_str == "65":
+            return "NFC-e"
+        if val_str == "55":
+            return "NF-e"
+        
+        return "Não identificado"
+
     def export_query_to_excel(self) -> None:
         if not self.sql_file_path.exists():
             raise FileNotFoundError(f"Arquivo SQL não encontrado: {self.sql_file_path}")
@@ -123,7 +134,10 @@ class ExportService:
                     if row_fill:
                         cell.fill = row_fill
 
-                    if "valor" in col_name and isinstance(val, (int, float)):
+                    if "modelo" in col_name:
+                        cell.value = self._format_nfe_model(val)
+                        cell.alignment = align_center
+                    elif "valor" in col_name and isinstance(val, (int, float)):
                         cell.value = val / 100.0 if isinstance(val, int) else val
                         cell.number_format = 'R$ #,##0.00'
                         cell.alignment = align_right

@@ -4,6 +4,7 @@ WITH xml_filtrado AS (
         cnpj_emit,
         total_value,
         emission_date,
+        nfe_model,
         document_status
     FROM xml_documents
     WHERE document_status != '02'
@@ -14,6 +15,7 @@ sped_agrupado AS (
         MAX(cnpj_emit) AS cnpj_emit,
         MAX(total_value) AS total_value,
         MAX(emission_date) AS emission_date,
+        MAX(nfe_model) AS nfe_model,
         MAX(document_status) AS document_status,
         STRING_AGG(DISTINCT sped_type, ' | ') AS tipo_sped
     FROM sped_documents
@@ -22,6 +24,7 @@ sped_agrupado AS (
 )
 SELECT 
     COALESCE(x.access_key, s.access_key) AS chave_acesso,
+    COALESCE(x.nfe_model, s.nfe_model) AS modelo_nfe,
     COALESCE(x.cnpj_emit, s.cnpj_emit) AS cnpj_emitente,
 
     x.total_value AS valor_xml_centavos,

@@ -1,10 +1,9 @@
 import os
 import subprocess
 import sys
-import tkinter as tk
+from pathlib import Path
 from tkinter import ttk, messagebox
 import customtkinter as ctk
-from pathlib import Path
 
 
 class ResultsTableFrame(ctk.CTkFrame):
@@ -133,8 +132,12 @@ class ResultsTableFrame(ctk.CTkFrame):
         for i, col_name in enumerate(columns):
             col_key = clean_columns[i]
             col_text = str(col_name) if col_name is not None else f"COLUNA {i+1}"
-            self.tree.heading(col_key, text=col_text.strip().upper(), anchor="w")
-            self.tree.column(col_key, width=140, minwidth=80, anchor="w")
+
+            anchor = "center" if "MODELO" in col_text.upper() or "STATUS" in col_text.upper() else "w"
+            width = 100 if "MODELO" in col_text.upper() else 140
+
+            self.tree.heading(col_key, text=col_text.strip().upper(), anchor=anchor)
+            self.tree.column(col_key, width=width, minwidth=70, anchor=anchor)
 
             if col_text and "STATUS" in col_text.strip().upper():
                 status_col_idx = i
