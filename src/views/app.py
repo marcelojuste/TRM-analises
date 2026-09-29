@@ -53,12 +53,19 @@ class MainWindow(ctk.CTk):
     def _set_app_icon(self):
         icon_path = PATHS.icons_dir / "iconTRM.ico"
         if icon_path.exists():
+            abs_icon_path = str(icon_path.resolve())
             try:
-                self.iconbitmap(str(icon_path))
-            except Exception:
-                img = Image.open(icon_path)
+                self.iconbitmap(abs_icon_path)
+            except Exception as e:
+                print(f"Erro no iconbitmap: {e}")
+
+            try:
+                img = Image.open(abs_icon_path)
                 photo = ImageTk.PhotoImage(img)
-                self.iconphoto(False, photo)
+                self.iconphoto(True, photo)
+                self._app_icon = photo
+            except Exception as e:
+                print(f"Erro no iconphoto: {e}")
 
     def _build_widgets(self):
         self.header = HeaderFrame(self)
