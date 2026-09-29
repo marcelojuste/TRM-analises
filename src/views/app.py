@@ -1,18 +1,25 @@
-import sys
 import ctypes
 from pathlib import Path
-from tkinter import messagebox
-import customtkinter as ctk
-from PIL import Image, ImageTk
+import sys
 import threading
-import openpyxl
+from tkinter import messagebox
 
-from src.views.components.header import HeaderFrame
+import customtkinter as ctk
+import openpyxl
+from PIL import Image, ImageTk
+
+from src.app_paths import PATHS
+from src.exceptions import (
+    AuditAppError,
+    InterruptedException,
+    NoSpedRecordsFoundException,
+    NoXmlsFoundException,
+)
+from src.services.audit_service import AuditService
 from src.views.components.file_card import FileSelectionCard
+from src.views.components.header import HeaderFrame
 from src.views.components.metric_card import MetricCard
 from src.views.components.result_table import ResultsTableFrame
-from src.app_paths import PATHS
-from src.services.audit_service import AuditService, NoXmlsFoundException, NoSpedRecordsFoundException
 
 ctk.set_appearance_mode("Light")
 
@@ -356,6 +363,11 @@ class MainWindow(ctk.CTk):
                     "Registros SPED Não Encontrados", 
                     f"Não foi possível encontrar os registros SPED.\n\n{msg}"
                 ))
+            except AuditAppError as aae:
+                self.after(0, lambda msg=str(aae): messagebox.showerror(
+                    "Erro da Aplicação", 
+                    f"Ocorreu uma falha no fluxo de auditoria:\n\n{msg}"
+                ))
             except PermissionError as pe:
                 self.after(0, lambda msg=str(pe): messagebox.showerror("Arquivo em Uso", msg))
             except FileNotFoundError as fnf:
@@ -403,10 +415,6 @@ class MainWindow(ctk.CTk):
 
         self._set_ui_processing_state(False)
         self.geometry("980x680")
-
-
-class InterruptedException(Exception):
-    pass
 
 
 if __name__ == "__main__":
