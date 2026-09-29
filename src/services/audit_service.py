@@ -2,8 +2,9 @@ import os
 import sys
 import ctypes
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Dict, Any
 from concurrent.futures import ProcessPoolExecutor
+import threading
 
 from src.app_paths import PATHS
 from src.database.database import DisposableAuditDatabase
@@ -13,20 +14,39 @@ from src.parsers.sped_parser import SpedParser
 from src.services.excel_exporter import ExportService
 
 
-class AuditService:
-    nfe_dir: None | Path
-    nfce_dir: None | Path
-    sped_fiscal_path: None | Path
-    sped_cofins_path: None | Path
+class InterruptedException(Exception):
+    """Exceção para sinalizar o cancelamento manual da operação."""
+    pass
 
-    def __init__(self, nfe_dir: None | Path, nfce_dir: None | Path, sped_fiscal_path: None | Path, sped_cofins_path: None | Path):
+
+class AuditService:
+    nfe_dir: Optional[Path]
+    nfce_dir: Optional[Path]
+    sped_fiscal_path: Optional[Path]
+    sped_cofins_path: Optional[Path]
+
+    def __init__(
+        self, 
+        nfe_dir: Optional[Path] = None, 
+        nfce_dir: Optional[Path] = None, 
+        sped_fiscal_path: Optional[Path] = None, 
+        sped_cofins_path: Optional[Path] = None,
+        cancel_event: Optional[threading.Event] = None
+    ):
         self.nfe_dir = nfe_dir
         self.nfce_dir = nfce_dir
         self.sped_fiscal_path = sped_fiscal_path
         self.sped_cofins_path = sped_cofins_path
+        self.cancel_event = cancel_event
 
-    def run_pipeline(self) -> dict:
+    def check_cancellation(self):
+        """Lança uma exceção se a interface solicitou o cancelamento."""
+        if self.cancel_event and self.cancel_event.is_set():
+            raise InterruptedException("Operação cancelada pelo usuário.")
+
+    def run_pipeline(self) -> Dict[str, Any]:
         self.set_low_process_priority()
+        self.check_cancellation()
 
         enterprise_name = "EMPRESA_DESCONHECIDA"
         
@@ -37,6 +57,8 @@ class AuditService:
                 if found_name and found_name != "EMPRESA_DESCONHECIDA":
                     enterprise_name = found_name
 
+        self.check_cancellation()
+
         if enterprise_name == "EMPRESA_DESCONHECIDA" and self.sped_cofins_path and self.sped_cofins_path.exists():
             with SpedParser(self.sped_cofins_path) as parser:
                 parser.parse_metadata_only()
@@ -44,6 +66,7 @@ class AuditService:
                 if found_name and found_name != "EMPRESA_DESCONHECIDA":
                     enterprise_name = found_name
 
+        self.check_cancellation()
         xml_notes = self._extract_xmls()
 
         sql_query_path = PATHS.queries_dir / "audit.sql"
@@ -57,17 +80,22 @@ class AuditService:
         with DisposableAuditDatabase(enterprise=enterprise_name) as conn:
             with FiscalRepository(conn, batch_size=250) as repo:
                 for xml_tuple in xml_notes:
+                    self.check_cancellation()
                     repo.add_xml(xml_tuple)
         
                 if self.sped_fiscal_path and self.sped_fiscal_path.exists():
                     with SpedParser(self.sped_fiscal_path) as sped_fiscal_parser:
                         for sped_tuple in sped_fiscal_parser.parse_sped():
+                            self.check_cancellation()
                             repo.add_sped([sped_tuple])
 
                 if self.sped_cofins_path and self.sped_cofins_path.exists():
                     with SpedParser(self.sped_cofins_path) as sped_cofins_parser:
                         for sped_tuple in sped_cofins_parser.parse_sped():
+                            self.check_cancellation()
                             repo.add_sped([sped_tuple])
+
+            self.check_cancellation()
 
             with FiscalRepository(conn) as repo:
                 metrics["xml"] = repo.get_xml_metrics()
@@ -91,10 +119,10 @@ class AuditService:
     def _extract_xmls(self) -> List[Tuple]:
         xml_paths = []
 
-        if self.nfe_dir:
+        if self.nfe_dir and self.nfe_dir.exists():
             xml_paths.extend(XmlParser.get_xml_files(self.nfe_dir))
 
-        if self.nfce_dir:
+        if self.nfce_dir and self.nfce_dir.exists():
             xml_paths.extend(XmlParser.get_xml_files(self.nfce_dir))
 
         if not xml_paths:
@@ -105,16 +133,16 @@ class AuditService:
         with ProcessPoolExecutor(max_workers=2) as executor:
             results = executor.map(XmlParser.parse_xml_to_tuple, xml_paths, chunksize=50)
             for res in results:
+                self.check_cancellation()
                 if res:
                     xml_tuples.append(res)
 
         return xml_tuples
 
-    def set_low_process_priority(self):
+    def set_low_process_priority(self) -> None:
         try:
             if sys.platform == "win32":
                 BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
-                
                 handle = ctypes.windll.kernel32.GetCurrentProcess()
                 ctypes.windll.kernel32.SetPriorityClass(handle, BELOW_NORMAL_PRIORITY_CLASS)
             else:

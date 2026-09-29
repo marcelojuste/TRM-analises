@@ -28,6 +28,11 @@ class MainWindow(ctk.CTk):
         self.minsize(900, 650)
         self.configure(fg_color="#F8FAFC")
 
+        # Estado de execução e controle de thread
+        self.is_running = False
+        self.cancel_event = threading.Event()
+        self.audit_thread = None
+
         self._set_app_icon()
         self._build_widgets()
 
@@ -72,6 +77,13 @@ class MainWindow(ctk.CTk):
         self.card_sped_cofins = FileSelectionCard(self.grid_container, title="SPED Contribuições (.txt)", is_directory=False)
         self.card_sped_cofins.grid(row=1, column=1, padx=(10, 0), pady=0, sticky="ew")
 
+        self.file_cards = [
+            self.card_nfce, 
+            self.card_nfe, 
+            self.card_sped_fiscal, 
+            self.card_sped_cofins
+        ]
+
         self.metrics_container = ctk.CTkFrame(self, fg_color="transparent")
         self.metrics_container.pack(fill="x", padx=30, pady=(0, 16))
         self.metrics_container.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="metric")
@@ -90,7 +102,6 @@ class MainWindow(ctk.CTk):
 
         self.footer_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.footer_frame.pack(fill="x", padx=30, pady=(0, 16))
-
         self.footer_frame.grid_columnconfigure((0, 1), weight=1, uniform="footer_btn")
 
         self.btn_execute = ctk.CTkButton(
@@ -115,35 +126,83 @@ class MainWindow(ctk.CTk):
             text_color="#991B1B",
             corner_radius=8,
             height=46,
-            command=self.reset_app
+            command=self._on_clear_or_cancel_clicked
         )
 
         self.results_table = ResultsTableFrame(self)
 
-    def _set_cards_state(self, state: str):
-        cards = [self.card_nfce, self.card_nfe, self.card_sped_fiscal, self.card_sped_cofins]
-        for card in cards:
-            if hasattr(card, "set_state"):
-                card.set_state(state)
-            elif hasattr(card, "btn_select"):
-                card.btn_select.configure(state=state)
-            elif hasattr(card, "button"):
-                card.button.configure(state=state)
+    def _set_ui_processing_state(self, is_processing: bool):
+        """Alterna a UI entre modo de Execução/Processamento e Pronto."""
+        self.is_running = is_processing
+        enabled = not is_processing
+
+        for card in self.file_cards:
+            card.set_enabled(enabled)
+
+        self.results_table.set_enabled(enabled)
+
+        if is_processing:
+            self.btn_execute.configure(state="disabled", text="⏳ Processando Auditoria...")
+            
+            # Transforma o botão Limpar em Cancelar Operação
+            self.btn_clear.configure(
+                text="🛑   Cancelar Operação",
+                fg_color="#EF4444",
+                hover_color="#DC2626",
+                text_color="#FFFFFF",
+                state="normal"
+            )
+
+            # Garante que o botão Cancelar esteja visível na interface durante a execução
+            if not self.btn_clear.winfo_ismapped():
+                self.btn_execute.pack_forget()
+                self.btn_execute.grid(row=0, column=0, padx=(0, 8), sticky="ew", ipady=2)
+                self.btn_clear.grid(row=0, column=1, padx=(8, 0), sticky="ew", ipady=2)
+        else:
+            self.btn_execute.configure(state="normal", text="▶   Executar Auditoria")
+            
+            # Restaura o botão para o modo Limpar Padrão
+            self.btn_clear.configure(
+                text="🔄   Limpar",
+                fg_color="#FEE2E2",
+                hover_color="#FCA5A5",
+                text_color="#991B1B",
+                state="normal"
+            )
+
+    def _on_clear_or_cancel_clicked(self):
+        """Handler do botão dinâmico (Limpar / Cancelar Operação)."""
+        if self.is_running:
+            self.cancel_audit()
+        else:
+            self.reset_app()
+
+    def cancel_audit(self):
+        """Sinaliza o cancelamento da operação."""
+        if self.is_running:
+            self.cancel_event.set()
+            self.btn_clear.configure(state="disabled", text="⏳ Cancelando...")
+
+    def _cleanup_temp_files(self):
+        """Exclui arquivos temporários residuais ou incompletos na pasta de saída."""
+        try:
+            if PATHS.outputs_dir.exists():
+                for temp_file in PATHS.outputs_dir.glob("*.tmp"):
+                    temp_file.unlink(missing_ok=True)
+                for temp_file in PATHS.outputs_dir.glob("~$*.xlsx"):
+                    temp_file.unlink(missing_ok=True)
+        except Exception as e:
+            print(f"Erro ao limpar arquivos temporários: {e}")
 
     def _update_metrics_cards(self, metrics: dict):
         xml_data = metrics.get("xml", {"qty": 0, "val": 0.0})
         sped_data = metrics.get("sped", {"qty": 0, "val": 0.0})
 
-        xml_qty = xml_data.get("qty", 0)
-        xml_val = xml_data.get("val", 0.0)
-        sped_qty = sped_data.get("qty", 0)
-        sped_val = sped_data.get("val", 0.0)
+        formatted_xml_qty = f"{xml_data.get('qty', 0):,}".replace(",", ".")
+        formatted_xml_val = f"R$ {xml_data.get('val', 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        formatted_xml_qty = f"{xml_qty:,}".replace(",", ".")
-        formatted_xml_val = f"R$ {xml_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-        formatted_sped_qty = f"{sped_qty:,}".replace(",", ".")
-        formatted_sped_val = f"R$ {sped_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        formatted_sped_qty = f"{sped_data.get('qty', 0):,}".replace(",", ".")
+        formatted_sped_val = f"R$ {sped_data.get('val', 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
         self.card_xml_qty.set_value(formatted_xml_qty)
         self.card_xml_val.set_value(formatted_xml_val)
@@ -199,11 +258,6 @@ class MainWindow(ctk.CTk):
         if self.winfo_height() < 800:
             self.geometry(f"{self.winfo_width()}x820")
 
-        if not self.btn_clear.winfo_ismapped():
-            self.btn_execute.pack_forget()
-            self.btn_execute.grid(row=0, column=0, padx=(0, 8), sticky="ew", ipady=2)
-            self.btn_clear.grid(row=0, column=1, padx=(8, 0), sticky="ew", ipady=2)
-
     def run_audit(self):
         raw_paths = {
             "nfe": self.card_nfe.get_path(),
@@ -228,68 +282,75 @@ class MainWindow(ctk.CTk):
             messagebox.showerror("Erro", "Os seguintes arquivos/diretórios não existem:\n" + "\n".join(invalid_paths))
             return
 
-        self.btn_execute.configure(state="disabled", text="⏳ Processando Auditoria...")
-        self.btn_clear.configure(state="disabled")
-        self.results_table.set_button_state("disabled")
-        self._set_cards_state("disabled")
+        self.cancel_event.clear()
+        self._set_ui_processing_state(True)
         self.update_idletasks()
 
         def worker():
+            cancelled = False
             try:
                 audit_service = AuditService(
                     nfe_dir=paths["nfe"],
                     nfce_dir=paths["nfce"],
                     sped_fiscal_path=paths["sped_fiscal"],
-                    sped_cofins_path=paths["sped_cofins"]
+                    sped_cofins_path=paths["sped_cofins"],
+                    cancel_event=self.cancel_event # Repassa o evento de cancelamento
                 )
                 
                 result = audit_service.run_pipeline()
 
-                excel_file = Path(result["excel_path"]) if result.get("excel_path") and Path(str(result["excel_path"])).exists() else None
-                enterprise_name = result.get("enterprise_name", "EMPRESA_DESCONHECIDA")
-                metrics = result.get("metrics", {})
+                if self.cancel_event.is_set():
+                    cancelled = True
+                else:
+                    excel_file = Path(result["excel_path"]) if result.get("excel_path") and Path(str(result["excel_path"])).exists() else None
+                    enterprise_name = result.get("enterprise_name", "EMPRESA_DESCONHECIDA")
+                    metrics = result.get("metrics", {})
 
-                self.after(0, lambda: self._update_metrics_cards(metrics))
+                    self.after(0, lambda: self._update_metrics_cards(metrics))
 
-                if not excel_file:
-                    generated_files = sorted(PATHS.outputs_dir.glob("*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True)
-                    if generated_files:
-                        excel_file = generated_files[0]
+                    if not excel_file:
+                        generated_files = sorted(PATHS.outputs_dir.glob("*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True)
+                        if generated_files:
+                            excel_file = generated_files[0]
 
-                if excel_file:
-                    self.after(0, lambda: self._show_results_table(excel_file, company_name=enterprise_name))
+                    if excel_file:
+                        self.after(0, lambda: self._show_results_table(excel_file, company_name=enterprise_name))
 
-                self.after(0, lambda: messagebox.showinfo(
-                    "Sucesso", 
-                    f"Auditoria concluída com sucesso!\n\nRelatório gerado em:\n{PATHS.outputs_dir.resolve()}"
-                ))
+                    self.after(0, lambda: messagebox.showinfo(
+                        "Sucesso", 
+                        f"Auditoria concluída com sucesso!\n\nRelatório gerado em:\n{PATHS.outputs_dir.resolve()}"
+                    ))
+
+            except InterruptedException:
+                cancelled = True
             except Exception as e:
-                error_msg = str(e)
-                self.after(0, lambda msg=error_msg: messagebox.showerror(
-                    "Erro na Auditoria", 
-                    f"Ocorreu um erro durante a execução:\n{msg}"
-                ))
+                if self.cancel_event.is_set():
+                    cancelled = True
+                else:
+                    error_msg = str(e)
+                    self.after(0, lambda msg=error_msg: messagebox.showerror(
+                        "Erro na Auditoria", 
+                        f"Ocorreu um erro durante a execução:\n{msg}"
+                    ))
             finally:
-                def restore_ui():
-                    self.btn_execute.configure(state="normal", text="▶   Executar Auditoria")
-                    self.btn_clear.configure(state="normal")
-                    self.results_table.set_button_state("normal")
-                    self._set_cards_state("normal")
+                if cancelled or self.cancel_event.is_set():
+                    self._cleanup_temp_files()
+                    self.after(0, self.reset_app)
+                    self.after(0, lambda: messagebox.showwarning("Cancelado", "A operação de auditoria foi cancelada pelo usuário."))
+                else:
+                    self.after(0, lambda: self._set_ui_processing_state(False))
 
-                self.after(0, restore_ui)
-
-        threading.Thread(target=worker, daemon=True).start()
+        self.audit_thread = threading.Thread(target=worker, daemon=True)
+        self.audit_thread.start()
 
     def reset_app(self):
-        cards = [self.card_nfce, self.card_nfe, self.card_sped_fiscal, self.card_sped_cofins]
-        for card in cards:
-            if hasattr(card, "clear_selection"):
-                card.clear_selection()
+        for card in self.file_cards:
+            card.clear_selection()
 
-        self.card_xml_qty.set_value("0")
-        self.card_xml_val.set_value("R$ 0,00")
-        self.card_sped_qty.set_value("0")
-        self.card_sped_val.set_value("R$ 0,00")
+        self.card_xml_qty.reset("0", "NF-e + NFC-e")
+        self.card_xml_val.reset("R$ 0,00", "Soma dos XMLs")
+        self.card_sped_qty.reset("0", "Registros processados")
+        self.card_sped_val.reset("R$ 0,00", "Soma do SPED")
 
         self.results_table.clear()
         self.results_table.pack_forget()
@@ -298,79 +359,13 @@ class MainWindow(ctk.CTk):
         self.btn_execute.grid_forget()
         self.btn_execute.pack(fill="x", ipady=2)
 
+        self._set_ui_processing_state(False)
         self.geometry("980x680")
 
-    def run_audit(self):
-        raw_paths = {
-            "nfe": self.card_nfe.get_path(),
-            "nfce": self.card_nfce.get_path(),
-            "sped_fiscal": self.card_sped_fiscal.get_path(),
-            "sped_cofins": self.card_sped_cofins.get_path(),
-        }
 
-        has_xml = any([raw_paths["nfe"], raw_paths["nfce"]])
-        has_sped = any([raw_paths["sped_fiscal"], raw_paths["sped_cofins"]])
-
-        if not (has_xml and has_sped):
-            msg = "Por favor, selecione ao menos um diretório de XMLs (NF-e ou NFC-e)." if not has_xml \
-                else "Por favor, selecione ao menos um arquivo SPED (.txt)."
-            messagebox.showwarning("Aviso", msg)
-            return
-
-        paths = {key: Path(val) if val else None for key, val in raw_paths.items()}
-
-        invalid_paths = [str(p) for p in paths.values() if p and not p.exists()]
-        if invalid_paths:
-            messagebox.showerror("Erro", "Os seguintes arquivos/diretórios não existem:\n" + "\n".join(invalid_paths))
-            return
-
-        self.btn_execute.configure(state="disabled", text="⏳ Processando Auditoria...")
-        self._set_cards_state("disabled")
-        self.update_idletasks()
-
-        def worker():
-            try:
-                audit_service = AuditService(
-                    nfe_dir=paths["nfe"],
-                    nfce_dir=paths["nfce"],
-                    sped_fiscal_path=paths["sped_fiscal"],
-                    sped_cofins_path=paths["sped_cofins"]
-                )
-                
-                result = audit_service.run_pipeline()
-
-                excel_file = Path(result["excel_path"]) if result.get("excel_path") and Path(str(result["excel_path"])).exists() else None
-                enterprise_name = result.get("enterprise_name", "EMPRESA_DESCONHECIDA")
-                metrics = result.get("metrics", {})
-
-                self.after(0, lambda: self._update_metrics_cards(metrics))
-
-                if not excel_file:
-                    generated_files = sorted(PATHS.outputs_dir.glob("*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True)
-                    if generated_files:
-                        excel_file = generated_files[0]
-
-                if excel_file:
-                    self.after(0, lambda: self._show_results_table(excel_file, company_name=enterprise_name))
-
-                self.after(0, lambda: messagebox.showinfo(
-                    "Sucesso", 
-                    f"Auditoria concluída com sucesso!\n\nRelatório gerado em:\n{PATHS.outputs_dir.resolve()}"
-                ))
-            except Exception as e:
-                error_msg = str(e)
-                self.after(0, lambda msg=error_msg: messagebox.showerror(
-                    "Erro na Auditoria", 
-                    f"Ocorreu um erro durante a execução:\n{msg}"
-                ))
-            finally:
-                def restore_ui():
-                    self.btn_execute.configure(state="normal", text="▶   Executar Auditoria")
-                    self._set_cards_state("normal")
-
-                self.after(0, restore_ui)
-
-        threading.Thread(target=worker, daemon=True).start()
+class InterruptedException(Exception):
+    """Exceção customizada para interrupção graciosa do serviço."""
+    pass
 
 
 if __name__ == "__main__":
