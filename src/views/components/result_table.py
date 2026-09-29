@@ -88,6 +88,10 @@ class ResultsTableFrame(ctk.CTkFrame):
         self.vsb.grid(row=0, column=1, sticky="ns", padx=(2, 0), pady=0)
         self.hsb.grid(row=1, column=0, sticky="ew", padx=0, pady=(2, 0))
 
+    def set_button_state(self, state: str):
+        if hasattr(self, "btn_open_excel"):
+            self.btn_open_excel.configure(state=state)
+
     def set_title_info(self, company_name: str = None):
         if company_name and company_name.strip() and company_name.upper() != "EMPRESA_DESCONHECIDA":
             self.lbl_title.configure(text=f"PRÉVIA DO RELATÓRIO — {company_name.strip().upper()}")

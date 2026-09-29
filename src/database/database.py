@@ -6,7 +6,7 @@ from typing import Optional
 from src.app_paths import PATHS
 
 class DisposableAuditDatabase:
-    def __init__(self, enterprise: str, memory_limit: str = "1GB"):
+    def __init__(self, enterprise: str, memory_limit: str = "256MB"):
         self.enterprise = enterprise
         self.db_path = PATHS.get_enterprise_db_path(enterprise)
         self.memory_limit = memory_limit
@@ -26,7 +26,7 @@ class DisposableAuditDatabase:
         try:
             self._conn = duckdb.connect(database=str(self.db_path))
             self._conn.execute(f"SET memory_limit = '{self.memory_limit}';")
-            self._conn.execute("SET threads = 2;")
+            self._conn.execute("SET threads = 1;")
 
             if PATHS.schema_path.exists():
                 schema_sql = PATHS.schema_path.read_text(encoding="utf-8")

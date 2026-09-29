@@ -9,12 +9,27 @@ class SpedParser:
         self.sped_file: Path | None = Path(sped_file) if sped_file is not None else None
         self.file_path: Path | None = Path(sped_file) if sped_file is not None else None
         self.enterprise_name: str | None = None
-        self.fiscal_notes: list[tuple] = []
         self.cnpj_emit: str = ""
         self.sped_type: str = "EFD_ICMS_IPI"
 
     def get_enterprise(self):
         return self.enterprise_name or "EMPRESA_DESCONHECIDA"
+
+    def parse_metadata_only(self) -> None:
+        if not self.file_path or not self.file_path.exists():
+            return
+
+        for encoding in ['latin-1', 'utf-8', 'utf-8-sig']:
+            try:
+                with open(self.file_path, 'r', encoding=encoding) as f:
+                    for line in f:
+                        line_str = line.strip()
+                        if line_str.startswith('|0000|'):
+                            self._parse_0000(line_str)
+                            return
+                break
+            except (UnicodeDecodeError, Exception):
+                continue
 
     def _parse_0000(self, line_0000: str):
         fields = line_0000.strip().split('|')
@@ -37,34 +52,35 @@ class SpedParser:
             self.cnpj_emit = "".join(filter(str.isdigit, cnpj_raw))
 
     def _parse_C100(self, line: str) -> tuple:
-        fields = line.strip().split('|')
+        if len(line) < 30:
+            return ()
+
+        fields = line.split('|')
 
         if len(fields) < 14:
             return ()
         
-        ind_oper = fields[2].strip() if len(fields) > 2 else ""
-        if ind_oper == "0":
+        if fields[2] == "0":
             return ()
 
         try:
-            nfe_model = int(fields[5].strip()) if fields[5].strip() else 55
+            nfe_model = int(fields[5]) if fields[5] else 55
         except ValueError:
             nfe_model = 55
 
-        document_status = fields[6].strip() if len(fields) > 6 else "00"
-
-        access_key = fields[9].strip() if len(fields) > 9 else ""
+        document_status = fields[6] if fields[6] else "00"
+        access_key = fields[9]
 
         if len(access_key) != 44:
             return ()
 
-        raw_date = fields[10].strip() if len(fields) > 10 else ""
+        raw_date = fields[10]
         if len(raw_date) == 8:
             document_date = f"{raw_date[4:8]}-{raw_date[2:4]}-{raw_date[0:2]}"
         else:
             document_date = "1900-01-01"
 
-        raw_value = fields[12].strip() if len(fields) > 12 else "0"
+        raw_value = fields[12]
         document_raw_value = raw_value.replace(',', '.') if raw_value else '0'
         
         try:
@@ -74,9 +90,8 @@ class SpedParser:
 
         return (nfe_model, document_status, access_key, document_date, total_value)
 
-    def _parse_sped(self) -> Generator[SpedDocument, None, None]:
-        self.fiscal_notes = []
-
+    def parse_sped(self) -> Generator[tuple, None, None]:
+        """Streaming linha por linha enviando as tuplas diretamente."""
         if not self.file_path or not self.file_path.exists():
             return
 
@@ -108,14 +123,12 @@ class SpedParser:
                                 sped_type=self.sped_type
                             )
 
-                            self.fiscal_notes.append(fiscal_note.to_tuple())
-                            yield fiscal_note
+                            yield fiscal_note.to_tuple()
                 break 
             except (UnicodeDecodeError, Exception):
                 continue
 
     def __enter__(self):
-        list(self._parse_sped())
         return self
 
     def __exit__(self, exc_type, exc, tb):

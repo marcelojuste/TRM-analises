@@ -199,9 +199,86 @@ class MainWindow(ctk.CTk):
         if self.winfo_height() < 800:
             self.geometry(f"{self.winfo_width()}x820")
 
-        self.btn_execute.pack_forget()
-        self.btn_execute.grid(row=0, column=0, padx=(0, 8), sticky="ew", ipady=2)
-        self.btn_clear.grid(row=0, column=1, padx=(8, 0), sticky="ew", ipady=2)
+        if not self.btn_clear.winfo_ismapped():
+            self.btn_execute.pack_forget()
+            self.btn_execute.grid(row=0, column=0, padx=(0, 8), sticky="ew", ipady=2)
+            self.btn_clear.grid(row=0, column=1, padx=(8, 0), sticky="ew", ipady=2)
+
+    def run_audit(self):
+        raw_paths = {
+            "nfe": self.card_nfe.get_path(),
+            "nfce": self.card_nfce.get_path(),
+            "sped_fiscal": self.card_sped_fiscal.get_path(),
+            "sped_cofins": self.card_sped_cofins.get_path(),
+        }
+
+        has_xml = any([raw_paths["nfe"], raw_paths["nfce"]])
+        has_sped = any([raw_paths["sped_fiscal"], raw_paths["sped_cofins"]])
+
+        if not (has_xml and has_sped):
+            msg = "Por favor, selecione ao menos um diretório de XMLs (NF-e ou NFC-e)." if not has_xml \
+                else "Por favor, selecione ao menos um arquivo SPED (.txt)."
+            messagebox.showwarning("Aviso", msg)
+            return
+
+        paths = {key: Path(val) if val else None for key, val in raw_paths.items()}
+
+        invalid_paths = [str(p) for p in paths.values() if p and not p.exists()]
+        if invalid_paths:
+            messagebox.showerror("Erro", "Os seguintes arquivos/diretórios não existem:\n" + "\n".join(invalid_paths))
+            return
+
+        self.btn_execute.configure(state="disabled", text="⏳ Processando Auditoria...")
+        self.btn_clear.configure(state="disabled")
+        self.results_table.set_button_state("disabled")
+        self._set_cards_state("disabled")
+        self.update_idletasks()
+
+        def worker():
+            try:
+                audit_service = AuditService(
+                    nfe_dir=paths["nfe"],
+                    nfce_dir=paths["nfce"],
+                    sped_fiscal_path=paths["sped_fiscal"],
+                    sped_cofins_path=paths["sped_cofins"]
+                )
+                
+                result = audit_service.run_pipeline()
+
+                excel_file = Path(result["excel_path"]) if result.get("excel_path") and Path(str(result["excel_path"])).exists() else None
+                enterprise_name = result.get("enterprise_name", "EMPRESA_DESCONHECIDA")
+                metrics = result.get("metrics", {})
+
+                self.after(0, lambda: self._update_metrics_cards(metrics))
+
+                if not excel_file:
+                    generated_files = sorted(PATHS.outputs_dir.glob("*.xlsx"), key=lambda f: f.stat().st_mtime, reverse=True)
+                    if generated_files:
+                        excel_file = generated_files[0]
+
+                if excel_file:
+                    self.after(0, lambda: self._show_results_table(excel_file, company_name=enterprise_name))
+
+                self.after(0, lambda: messagebox.showinfo(
+                    "Sucesso", 
+                    f"Auditoria concluída com sucesso!\n\nRelatório gerado em:\n{PATHS.outputs_dir.resolve()}"
+                ))
+            except Exception as e:
+                error_msg = str(e)
+                self.after(0, lambda msg=error_msg: messagebox.showerror(
+                    "Erro na Auditoria", 
+                    f"Ocorreu um erro durante a execução:\n{msg}"
+                ))
+            finally:
+                def restore_ui():
+                    self.btn_execute.configure(state="normal", text="▶   Executar Auditoria")
+                    self.btn_clear.configure(state="normal")
+                    self.results_table.set_button_state("normal")
+                    self._set_cards_state("normal")
+
+                self.after(0, restore_ui)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def reset_app(self):
         cards = [self.card_nfce, self.card_nfe, self.card_sped_fiscal, self.card_sped_cofins]

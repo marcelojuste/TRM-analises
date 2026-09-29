@@ -1,5 +1,5 @@
 class FiscalRepository:
-    def __init__(self, conn, batch_size=500):
+    def __init__(self, conn, batch_size=1000):
         self.conn = conn
         self.batch_size = batch_size
         self.xml_batch = []

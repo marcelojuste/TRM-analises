@@ -74,12 +74,12 @@ def test_run_pipeline_with_only_sped_cofins(
 ):
     sped_cofins_file = tmp_path / "sped_cofins.txt"
     sped_cofins_file.touch()
-
+    
     mock_sped_instance = MagicMock()
-    mock_sped_instance.fiscal_notes = [("SPED_COFINS_NOTE_1",)]
+    mock_sped_instance.parse_sped.return_value = [("SPED_COFINS_NOTE_1",)]
     mock_sped_instance.get_enterprise.return_value = "EMPRESA_COFINS_LTDA"
     mock_sped_parser.return_value.__enter__.return_value = mock_sped_instance
-
+    
     mock_get_xml_files.return_value = []
 
     service = AuditService(
@@ -91,8 +91,9 @@ def test_run_pipeline_with_only_sped_cofins(
     service.run_pipeline()
 
     mock_db.assert_called_once_with(enterprise="EMPRESA_COFINS_LTDA")
-
+    
     repo_instance = mock_repo.return_value.__enter__.return_value
+        
     repo_instance.add_sped.assert_called_once_with([("SPED_COFINS_NOTE_1",)])
 
 
@@ -140,22 +141,23 @@ def test_audit_service_real_pipeline_execution(
     mock_executor.__enter__.return_value = mock_executor
     mock_executor.map.side_effect = lambda func, iterable, **kwargs: [func(x) for x in iterable]
     mock_executor_class.return_value = mock_executor
-
+    
     mock_sped_instance = MagicMock()
     mock_sped_instance.get_enterprise.return_value = "EMPRESA TESTE REAL SA"
-    mock_sped_instance.fiscal_notes = [
+        
+    mock_sped_instance.parse_sped.return_value = [
         (
             "31240112345678000195550010000123451000123456",
-            "12345678000195",                               
-            10000,                                         
-            "2026-09-17",                              
-            55,                                         
-            "00",                                      
-            "EFD_ICMS_IPI"                                  
+            "12345678000195",
+            10000,
+            "2026-09-17",
+            55,
+            "00",
+            "EFD_ICMS_IPI"
         )
     ]
     mock_sped_parser.return_value.__enter__.return_value = mock_sped_instance
-
+    
     fake_doc_tuple = (
         "31240112345678000195550010000123451000123456",
         "12345678000195",
@@ -164,19 +166,19 @@ def test_audit_service_real_pipeline_execution(
         55,
         "00"
     )
-
+    
     mock_xml_parser.get_xml_files.return_value = [tmp_path / "nfe.xml"]
     mock_xml_parser.parse_xml_to_tuple.return_value = fake_doc_tuple
-
+    
     mock_paths.schema_path.write_text("""
-    CREATE TABLE IF NOT EXISTS xml_documents (
+        CREATE TABLE IF NOT EXISTS xml_documents (
             access_key VARCHAR PRIMARY KEY,
             cnpj_emit VARCHAR,
             total_value BIGINT,
             emission_date VARCHAR,
             nfe_model INT,
             document_status VARCHAR
-        );
+            );
         CREATE TABLE IF NOT EXISTS sped_documents (
             access_key VARCHAR,
             cnpj_emit VARCHAR,
@@ -188,16 +190,16 @@ def test_audit_service_real_pipeline_execution(
             PRIMARY KEY (access_key, sped_type)
         );
     """, encoding="utf-8")
-
+    
     (mock_paths.queries_dir / "audit.sql").write_text("""
         SELECT access_key AS chave, total_value AS valor FROM xml_documents
         UNION ALL
         SELECT access_key AS chave, total_value AS valor FROM sped_documents;
     """, encoding="utf-8")
-
+    
     sped_fiscal_file = tmp_path / "sped.txt"
     sped_fiscal_file.touch()
-
+    
     service = AuditService(
         nfe_dir=tmp_path,
         nfce_dir=None,
@@ -205,14 +207,13 @@ def test_audit_service_real_pipeline_execution(
         sped_cofins_path=None
     )
     service.run_pipeline()
-
+    
     expected_excel = mock_paths.outputs_dir / "relatorio_auditoria_EMPRESA TESTE REAL SA.xlsx"
     assert expected_excel.exists(), "O arquivo Excel não foi gerado no disco!"
-
+    
     wb = load_workbook(expected_excel)
     ws = wb.active
     rows = list(ws.iter_rows(values_only=True))
-
+    
     assert len(rows) > 1, f"Relatório vazio! Linhas encontradas: {len(rows)}"
-    # 2 linhas de título/metadados + 1 linha de cabeçalho de colunas + 2 registros = 5 linhas
     assert len(rows) == 5
