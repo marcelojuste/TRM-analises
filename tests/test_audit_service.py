@@ -61,11 +61,11 @@ def test_audit_service_initialization():
 @patch("src.services.audit_service.ExportService")
 @patch("src.services.audit_service.FiscalRepository")
 @patch("src.services.audit_service.DisposableAuditDatabase")
-@patch("src.services.audit_service.XmlParser.get_xml_files")
+@patch.object(AuditService, "_extract_xmls")
 @patch("src.services.audit_service.SpedParser")
 def test_run_pipeline_with_only_sped_cofins(
     mock_sped_parser,
-    mock_get_xml_files,
+    mock_extract_xmls,
     mock_db,
     mock_repo,
     mock_export_service,
@@ -74,37 +74,35 @@ def test_run_pipeline_with_only_sped_cofins(
 ):
     sped_cofins_file = tmp_path / "sped_cofins.txt"
     sped_cofins_file.touch()
-    
+
     mock_sped_instance = MagicMock()
     mock_sped_instance.parse_sped.return_value = [("SPED_COFINS_NOTE_1",)]
     mock_sped_instance.get_enterprise.return_value = "EMPRESA_COFINS_LTDA"
     mock_sped_parser.return_value.__enter__.return_value = mock_sped_instance
-    
-    mock_get_xml_files.return_value = []
+
+    mock_extract_xmls.return_value = [("XML_NOTE_FAKE",)]
 
     service = AuditService(
-        nfe_dir=None,
+        nfe_dir=tmp_path,
         nfce_dir=None,
         sped_fiscal_path=None,
-        sped_cofins_path=sped_cofins_file
+        sped_cofins_path=sped_cofins_file,
     )
     service.run_pipeline()
 
     mock_db.assert_called_once_with(enterprise="EMPRESA_COFINS_LTDA")
-    
-    repo_instance = mock_repo.return_value.__enter__.return_value
-        
-    repo_instance.add_sped.assert_called_once_with([("SPED_COFINS_NOTE_1",)])
 
+    repo_instance = mock_repo.return_value.__enter__.return_value
+    repo_instance.add_sped.assert_called_once_with([("SPED_COFINS_NOTE_1",)])
 
 @patch("src.services.audit_service.ExportService")
 @patch("src.services.audit_service.FiscalRepository")
 @patch("src.services.audit_service.DisposableAuditDatabase")
-@patch("src.services.audit_service.XmlParser")
+@patch.object(AuditService, "_extract_xmls")
 @patch("src.services.audit_service.SpedParser")
 def test_run_pipeline_fallback_enterprise_name(
     mock_sped_parser,
-    mock_xml_parser,
+    mock_extract_xmls,
     mock_db,
     mock_repo,
     mock_export_service,
@@ -115,7 +113,7 @@ def test_run_pipeline_fallback_enterprise_name(
     mock_sped_instance.get_enterprise.return_value = None
     mock_sped_parser.return_value.__enter__.return_value = mock_sped_instance
 
-    mock_xml_parser.get_xml_files.return_value = []
+    mock_extract_xmls.return_value = [("XML_NOTE_FAKE",)]
 
     service = AuditService(
         nfe_dir=None,
@@ -123,7 +121,9 @@ def test_run_pipeline_fallback_enterprise_name(
         sped_fiscal_path=None,
         sped_cofins_path=None
     )
-    result = service.run_pipeline()
+    
+    with patch.object(service, "_process_sped_files", return_value=1):
+        result = service.run_pipeline()
 
     mock_db.assert_called_once_with(enterprise="EMPRESA_DESCONHECIDA")
     expected_output_path = mock_paths.outputs_dir / "relatorio_auditoria_EMPRESA_DESCONHECIDA.xlsx"

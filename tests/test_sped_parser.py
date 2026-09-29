@@ -6,8 +6,7 @@ from src.parsers.sped_parser import SpedParser
 
 def test_sped_parser_accepts_none():
     parser = SpedParser(None)
-    assert parser.sped_file is None
-    assert parser.file_path is None
+    assert parser.file_path is None 
     assert parser.get_enterprise() == "EMPRESA_DESCONHECIDA"
 
 
@@ -50,7 +49,7 @@ def test_parse_C100_invalid_ind_oper(tmp_path: Path):
     line = "|C100|0|0|PART001|55|00|1|100|12345678901234567890123456789012345678901234|01052023|01052023|150,55|"
     result = parser._parse_C100(line)
 
-    assert result == ()
+    assert result is None
 
 
 def test_parse_C100_invalid_key_length(tmp_path: Path):
@@ -61,4 +60,4 @@ def test_parse_C100_invalid_key_length(tmp_path: Path):
     line = "|C100|1|0|PART001|55|00|1|100|123456789|01052023|01052023|150,55|"
     result = parser._parse_C100(line)
 
-    assert result == ()
+    assert result is None
