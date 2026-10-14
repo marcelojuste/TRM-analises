@@ -22,7 +22,7 @@ def test_get_xml_files_success(tmp_path: Path):
 
     files = list(XmlParser.get_xml_files(tmp_path))
     assert len(files) == 2
-    assert all(f.suffix == ".xml" for f in files)
+    assert all(f.endswith(".xml") for f in files)
 
 
 def test_get_xml_files_invalid_directory():
