@@ -12,24 +12,40 @@ class SpedParser:
         self.enterprise_name: Optional[str] = None
         self.cnpj_emit: str = ""
         self.sped_type: str = "EFD_ICMS_IPI"
+        self._detected_encoding: Optional[str] = None
 
     def get_enterprise(self) -> str:
         return self.enterprise_name or "EMPRESA_DESCONHECIDA"
+
+    def _detect_encoding(self) -> str:
+        if self._detected_encoding:
+            return self._detected_encoding
+
+        if not self.file_path or not self.file_path.exists():
+            return 'utf-8'
+
+        for encoding in self.ENCODINGS:
+            try:
+                with open(self.file_path, 'r', encoding=encoding) as f:
+                    f.readline()
+                self._detected_encoding = encoding
+                return encoding
+            except UnicodeDecodeError:
+                continue
+
+        self._detected_encoding = 'latin-1'
+        return self._detected_encoding
 
     def _read_lines(self) -> Generator[str, None, None]:
         if not self.file_path or not self.file_path.exists():
             return
 
-        for encoding in self.ENCODINGS:
-            try:
-                with open(self.file_path, 'r', encoding=encoding) as f:
-                    for line in f:
-                        line_str = line.strip()
-                        if line_str:
-                            yield line_str
-                return
-            except UnicodeDecodeError:
-                continue
+        encoding = self._detect_encoding()
+        with open(self.file_path, 'r', encoding=encoding, errors='replace') as f:
+            for line in f:
+                line_str = line.strip()
+                if line_str:
+                    yield line_str
 
     def parse_metadata_only(self) -> None:
         for line in self._read_lines():

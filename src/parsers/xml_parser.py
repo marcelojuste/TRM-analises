@@ -1,8 +1,9 @@
+import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Iterator
 
 from src.models.fiscal_document import FiscalDocument
+
 
 class XmlParser:
 
@@ -16,11 +17,17 @@ class XmlParser:
             return 0
 
     @staticmethod
-    def get_xml_files(directory_path: Path) -> Iterator[Path]:
+    def get_xml_files(directory: Path | str) -> list[str]:
+        directory_path = Path(directory)
         if not directory_path.exists() or not directory_path.is_dir():
-            raise FileNotFoundError(f"Diretório inválido: {directory_path}")
+            raise FileNotFoundError(f"Diretório inválido: {directory}")
 
-        return (f for f in directory_path.glob("*.xml") if f.is_file())
+        xml_files = []
+        for root, _, files in os.walk(directory_path):
+            for file in files:
+                if file.lower().endswith(".xml"):
+                    xml_files.append(os.path.join(root, file))
+        return xml_files
 
     @staticmethod
     def parse_xml(xml_path: Path | str) -> FiscalDocument | None:
