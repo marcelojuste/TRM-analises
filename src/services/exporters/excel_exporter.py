@@ -139,15 +139,18 @@ class ExportService:
         ws.freeze_panes = "A4"
 
     def _auto_fit_columns(self, ws) -> None:
-        """Ajusta a largura de cada coluna dinamicamente de acordo com o maior conteúdo."""
-        for col in ws.columns:
-            max_len = 0
-            for cell in col:
-                if cell.row in (1, 2):
-                    continue
-                val_str = str(cell.value or "")
-                if len(val_str) > max_len:
-                    max_len = len(val_str)
-
-            col_letter = get_column_letter(col[0].column)
-            ws.column_dimensions[col_letter].width = min(max(max_len + 5, 15), 55)
+        default_widths = {
+            'A': 46,
+            'B': 12,
+            'C': 18,
+            'D': 16,
+            'E': 14,
+            'F': 12,
+            'G': 16,
+            'H': 14,
+            'I': 12,
+            'J': 20,
+            'K': 22
+        }
+        for col_letter, width in default_widths.items():
+            ws.column_dimensions[col_letter].width = width

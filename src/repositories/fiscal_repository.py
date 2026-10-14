@@ -1,5 +1,5 @@
 class FiscalRepository:
-    def __init__(self, conn, batch_size=1000):
+    def __init__(self, conn, batch_size: int = 100000):
         self.conn = conn
         self.batch_size = batch_size
         self.xml_batch = []
@@ -12,24 +12,52 @@ class FiscalRepository:
         self._flush_xmls()
         self._flush_speds()
 
-    def add_xml(self, xml_tuple: tuple) -> None:
-        self.xml_batch.append(xml_tuple)
+    def add_xml(self, xml_tuples: list | list[tuple] | tuple) -> None:
+        if isinstance(xml_tuples, list):
+            self.xml_batch.extend(xml_tuples)
+        elif isinstance(xml_tuples, tuple):
+            self.xml_batch.append(xml_tuples)
+
         if len(self.xml_batch) >= self.batch_size:
             self._flush_xmls()
 
-    def add_sped(self, sped_tuples: list | list[tuple]) -> None:
-        self.sped_batch.extend(sped_tuples)
+    def add_sped(self, sped_tuples: list | list[tuple] | tuple) -> None:
+        if isinstance(sped_tuples, list):
+            self.sped_batch.extend(sped_tuples)
+        elif isinstance(sped_tuples, tuple):
+            self.sped_batch.append(sped_tuples)
+
         if len(self.sped_batch) >= self.batch_size:
             self._flush_speds()
 
     def _flush_xmls(self) -> None:
-        if not self.xml_batch:
+        if not hasattr(self, 'xml_batch') or not self.xml_batch:
             return
+
         try:
+            self.conn.execute("""
+                CREATE TEMP TABLE IF NOT EXISTS temp_xml (
+                    access_key VARCHAR(44),
+                    cnpj_emit VARCHAR(14),
+                    total_value BIGINT,
+                    emission_date VARCHAR(10),
+                    nfe_model UTINYINT,
+                    document_status VARCHAR(2)
+                );
+            """)
+
             self.conn.executemany(
-                "INSERT OR IGNORE INTO xml_documents VALUES (?, ?, ?, ?, ?, ?)", 
+                "INSERT INTO temp_xml VALUES (?, ?, ?, ?, ?, ?);",
                 self.xml_batch
             )
+
+            self.conn.execute("""
+                INSERT INTO xml_documents 
+                SELECT * FROM temp_xml;
+            """)
+
+            self.conn.execute("DROP TABLE IF EXISTS temp_xml;")
+
         except Exception as e:
             print(f"❌ Erro ao inserir XMLs no banco: {e}")
             raise e
@@ -39,11 +67,32 @@ class FiscalRepository:
     def _flush_speds(self) -> None:
         if not self.sped_batch:
             return
+
         try:
+            self.conn.execute("""
+                CREATE TEMP TABLE IF NOT EXISTS temp_sped (
+                    access_key VARCHAR(44),
+                    cnpj_emit VARCHAR(14),
+                    total_value BIGINT,
+                    emission_date VARCHAR(10),
+                    nfe_model UTINYINT,
+                    document_status VARCHAR(2),
+                    sped_type VARCHAR(12)
+                );
+            """)
+
             self.conn.executemany(
-                "INSERT OR IGNORE INTO sped_documents VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                "INSERT INTO temp_sped VALUES (?, ?, ?, ?, ?, ?, ?);",
                 self.sped_batch
             )
+
+            self.conn.execute("""
+                INSERT OR IGNORE INTO sped_documents 
+                SELECT * FROM temp_sped;
+            """)
+
+            self.conn.execute("DROP TABLE IF EXISTS temp_sped;")
+
         except Exception as e:
             print(f"❌ Erro ao inserir SPEDs no banco: {e}")
             raise e
@@ -51,24 +100,11 @@ class FiscalRepository:
             self.sped_batch.clear()
 
     def get_xml_metrics(self) -> dict:
-        query = """
-        SELECT 
-            COUNT(*), 
-            COALESCE(SUM(total_value), 0) / 100.0 
-        FROM xml_documents
-        WHERE document_status != '02';
-        """
+        query = "SELECT COUNT(*), COALESCE(SUM(total_value), 0) / 100.0 FROM xml_documents WHERE document_status != '02';"
         qty, val = self.conn.execute(query).fetchone()
-        return {"qty": qty, "val": val}
+        return {"qty": qty or 0, "val": val or 0.0}
 
     def get_sped_metrics(self) -> dict:
-        query = """
-        SELECT 
-            COUNT(*), 
-            COALESCE(SUM(total_value), 0) / 100.0 
-        FROM sped_documents
-        WHERE document_status != '02';
-        """
+        query = "SELECT COUNT(*), COALESCE(SUM(total_value), 0) / 100.0 FROM sped_documents WHERE document_status != '02';"
         qty, val = self.conn.execute(query).fetchone()
-        return {"qty": qty, "val": val}
-    
+        return {"qty": qty or 0, "val": val or 0.0}

@@ -2,7 +2,7 @@ import ctypes
 import os
 import sys
 import threading
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -54,19 +54,22 @@ class AuditService:
         metrics = {"xml": {"qty": 0, "val": 0.0}, "sped": {"qty": 0, "val": 0.0}}
 
         with DisposableAuditDatabase(enterprise=enterprise_name) as conn:
-            with FiscalRepository(conn, batch_size=250) as repo:
-                for xml_tuple in xml_notes:
-                    self.check_cancellation()
-                    repo.add_xml(xml_tuple)
+            repo = FiscalRepository(conn)
+            
+            if xml_notes:
+                self.check_cancellation()
+                repo.add_xml(xml_notes)
         
-                sped_records_count = self._process_sped_files(repo)
+            sped_records_count = self._process_sped_files(repo)
 
             if sped_records_count == 0:
                 raise NoSpedRecordsFoundException("Não foi possível encontrar os registros SPED nos arquivos selecionados.")
 
             self.check_cancellation()
 
-            repo = FiscalRepository(conn)
+            repo._flush_xmls()
+            repo._flush_speds()
+
             metrics["xml"] = repo.get_xml_metrics()
             metrics["sped"] = repo.get_sped_metrics()
 
@@ -100,10 +103,11 @@ class AuditService:
         for sped_path in (self.sped_fiscal_path, self.sped_cofins_path):
             if sped_path and sped_path.exists():
                 with SpedParser(sped_path) as parser:
-                    for sped_tuple in parser.parse_sped():
+                    sped_records = list(parser.parse_sped())
+                    if sped_records:
                         self.check_cancellation()
-                        repo.add_sped([sped_tuple])
-                        count += 1
+                        repo.add_sped(sped_records)
+                        count += len(sped_records)
         return count
 
     def _extract_xmls(self) -> List[Tuple]:
@@ -117,9 +121,11 @@ class AuditService:
             return []
 
         xml_tuples = []
-        with ProcessPoolExecutor(max_workers=2) as executor:
-            for res in executor.map(XmlParser.parse_xml_to_tuple, xml_paths, chunksize=50):
-                self.check_cancellation()
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            for res in executor.map(XmlParser.parse_xml_to_tuple, xml_paths, chunksize=100):
+                if self.cancel_event and self.cancel_event.is_set():
+                    raise InterruptedException("Operação cancelada pelo usuário.")
                 if res:
                     xml_tuples.append(res)
 
