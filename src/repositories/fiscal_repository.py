@@ -1,3 +1,5 @@
+import pandas as pd
+
 class FiscalRepository:
     def __init__(self, conn, batch_size: int = 100000):
         self.conn = conn
@@ -31,32 +33,19 @@ class FiscalRepository:
             self._flush_speds()
 
     def _flush_xmls(self) -> None:
-        if not hasattr(self, 'xml_batch') or not self.xml_batch:
+        if not getattr(self, 'xml_batch', None):
             return
 
         try:
-            self.conn.execute("""
-                CREATE TEMP TABLE IF NOT EXISTS temp_xml (
-                    access_key VARCHAR(44),
-                    cnpj_emit VARCHAR(14),
-                    total_value BIGINT,
-                    emission_date VARCHAR(10),
-                    nfe_model UTINYINT,
-                    document_status VARCHAR(2)
-                );
-            """)
-
-            self.conn.executemany(
-                "INSERT INTO temp_xml VALUES (?, ?, ?, ?, ?, ?);",
-                self.xml_batch
-            )
+            df_xml = pd.DataFrame(self.xml_batch, columns=[
+                "access_key", "cnpj_emit", "total_value", 
+                "emission_date", "nfe_model", "document_status"
+            ])
 
             self.conn.execute("""
                 INSERT INTO xml_documents 
-                SELECT * FROM temp_xml;
+                SELECT * FROM df_xml;
             """)
-
-            self.conn.execute("DROP TABLE IF EXISTS temp_xml;")
 
         except Exception as e:
             print(f"❌ Erro ao inserir XMLs no banco: {e}")
@@ -65,33 +54,19 @@ class FiscalRepository:
             self.xml_batch.clear()
 
     def _flush_speds(self) -> None:
-        if not self.sped_batch:
+        if not getattr(self, 'sped_batch', None):
             return
 
         try:
-            self.conn.execute("""
-                CREATE TEMP TABLE IF NOT EXISTS temp_sped (
-                    access_key VARCHAR(44),
-                    cnpj_emit VARCHAR(14),
-                    total_value BIGINT,
-                    emission_date VARCHAR(10),
-                    nfe_model UTINYINT,
-                    document_status VARCHAR(2),
-                    sped_type VARCHAR(12)
-                );
-            """)
-
-            self.conn.executemany(
-                "INSERT INTO temp_sped VALUES (?, ?, ?, ?, ?, ?, ?);",
-                self.sped_batch
-            )
+            df_sped = pd.DataFrame(self.sped_batch, columns=[
+                "access_key", "cnpj_emit", "total_value", 
+                "emission_date", "nfe_model", "document_status", "sped_type"
+            ])
 
             self.conn.execute("""
                 INSERT OR IGNORE INTO sped_documents 
-                SELECT * FROM temp_sped;
+                SELECT * FROM df_sped;
             """)
-
-            self.conn.execute("DROP TABLE IF EXISTS temp_sped;")
 
         except Exception as e:
             print(f"❌ Erro ao inserir SPEDs no banco: {e}")
