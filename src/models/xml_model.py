@@ -1,4 +1,4 @@
-from models.fiscal_base_model import FiscalBaseModel
+from src.models.fiscal_base_model import FiscalBaseModel
 
 class XmlBaseModel(FiscalBaseModel):
     access_key: str

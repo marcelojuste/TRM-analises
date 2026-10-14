@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Generator, Optional, Tuple, Union
 
-from src.models.sped_model import SpedDocument
+from src.models.sped_model import SpedBaseModel
 
 
 class SpedParser:
@@ -128,14 +128,13 @@ class SpedParser:
                 if not parsed_c100:
                     continue
 
-                fiscal_document = SpedDocument(
+                fiscal_document = SpedBaseModel(
+                    sped_number_fields=18 if self.sped_type == "EFD_CONTRIBUICOES" else 1,
                     access_key=parsed_c100["access_key"],
-                    cnpj_emit=self.issuer_cnpj,
+                    cnpj_issuer=self.issuer_cnpj,
                     total_value=parsed_c100["total_value"],
                     emission_date=parsed_c100["emission_date"],
-                    nfe_model=parsed_c100["nfe_model"],
-                    document_status=parsed_c100["document_status"],
-                    sped_type=self.sped_type,
+                    document_status_number=1,  # 1 para Saída
                 )
                 yield fiscal_document.to_tuple()
 

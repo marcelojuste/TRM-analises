@@ -1,4 +1,4 @@
-from models.xml_model import XmlBaseModel
+from src.models.xml_model import XmlBaseModel
 
 class SpedBaseModel(XmlBaseModel):
     sped_type: str
