@@ -18,3 +18,6 @@ CREATE TABLE IF NOT EXISTS sped_documents (
     
     PRIMARY KEY (access_key, sped_type)
 );
+
+CREATE INDEX IF NOT EXISTS idx_xml_status ON xml_documents(document_status);
+CREATE INDEX IF NOT EXISTS idx_sped_status ON sped_documents(document_status);

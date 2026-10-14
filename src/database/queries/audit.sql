@@ -1,26 +1,12 @@
 WITH xml_filtrado AS (
-    SELECT 
-        access_key,
-        cnpj_emit,
-        total_value,
-        emission_date,
-        nfe_model,
-        document_status
+    SELECT access_key, cnpj_emit, total_value, emission_date, nfe_model, document_status
     FROM xml_documents
     WHERE document_status != '02'
 ),
-sped_agrupado AS (
-    SELECT 
-        access_key,
-        MAX(cnpj_emit) AS cnpj_emit,
-        MAX(total_value) AS total_value,
-        MAX(emission_date) AS emission_date,
-        MAX(nfe_model) AS nfe_model,
-        MAX(document_status) AS document_status,
-        STRING_AGG(DISTINCT sped_type, ' | ') AS tipo_sped
+sped_filtrado AS (
+    SELECT access_key, cnpj_emit, total_value, emission_date, nfe_model, document_status, sped_type
     FROM sped_documents
     WHERE document_status != '02'
-    GROUP BY access_key
 )
 SELECT 
     COALESCE(x.access_key, s.access_key) AS chave_acesso,
@@ -34,7 +20,7 @@ SELECT
     s.total_value AS valor_sped_centavos,
     s.emission_date AS data_emissao_sped,
     s.document_status AS status_sped,
-    s.tipo_sped AS tipo_sped,
+    s.sped_type AS tipo_sped,
 
     CASE 
         WHEN x.access_key IS NULL THEN 'XML_AUSENTE'
@@ -46,13 +32,10 @@ SELECT
     END AS status_auditoria
 
 FROM xml_filtrado x
-FULL OUTER JOIN sped_agrupado s 
-    ON x.access_key = s.access_key
+FULL OUTER JOIN sped_filtrado s ON x.access_key = s.access_key
 
 WHERE x.access_key IS NULL 
    OR s.access_key IS NULL 
    OR x.total_value IS DISTINCT FROM s.total_value 
    OR x.document_status IS DISTINCT FROM s.document_status 
-   OR x.emission_date IS DISTINCT FROM s.emission_date
-
-ORDER BY cnpj_emitente, chave_acesso;
+   OR x.emission_date IS DISTINCT FROM s.emission_date;
