@@ -2,11 +2,11 @@ import re
 from pathlib import Path
 from typing import Generator, Optional, Tuple
 
-from parsers.base_parser import FiscalDocumentBaseModelParser
+from src.parsers.xml_parser import XmlParser
 from src.models.sped_model import SpedBaseModel
 
 
-class SpedParser(FiscalDocumentBaseModelParser):
+class SpedParser(XmlParser):
 
     RECORD_DELIMITER = "|"
 
@@ -82,24 +82,26 @@ class SpedParser(FiscalDocumentBaseModelParser):
 
     def parse_sped(self) -> Generator[Tuple, None, None]:
         parsed_0000 = None
+        sped_number_fields: int = 0
 
         for line in self._read_lines():
             if line.startswith(f"{self.RECORD_DELIMITER}0000{self.RECORD_DELIMITER}"):
                 parsed_0000 = self._parse_record_0000(line)
                 if parsed_0000:
                     self.company_name = parsed_0000["company_name"]
+                    sped_number_fields = parsed_0000["fields"]
             elif line.startswith(f"{self.RECORD_DELIMITER}C100{self.RECORD_DELIMITER}"):
                 parsed_c100 = self._parse_record_c100(line)
                 if not parsed_c100 or not parsed_0000:
                     continue
 
                 sped_document = SpedBaseModel(
-                    sped_number_fields=parsed_0000["fields"],
+                    sped_number_fields=sped_number_fields,
                     access_key=parsed_c100["access_key"],
                     cnpj_issuer=parsed_0000["issuer_cnpj"],
                     total_value=parsed_c100["total_value"],
                     emission_date=parsed_c100["emission_date"],
-                    document_status_number=parsed_c100["document_status"],
+                    document_status_number=parsed_c100["document_status"]
                 )
 
                 yield sped_document.to_tuple()

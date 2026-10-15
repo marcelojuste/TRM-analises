@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Generator, List, Optional
 
-from parsers.base_parser import FiscalDocumentBaseModelParser
+from src.parsers.base_parser import FiscalDocumentBaseModelParser
 from src.models.xml_model import XmlBaseModel
 
 

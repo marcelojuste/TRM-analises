@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from parsers.base_parser import FiscalDocumentBaseModelParser
+from src.parsers.base_parser import FiscalDocumentBaseModelParser
 
 
 class SintegraParser(FiscalDocumentBaseModelParser):

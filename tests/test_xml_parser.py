@@ -68,7 +68,8 @@ def test_parse_xml_valid(tmp_path: Path):
     xml_file = tmp_path / "valid_nfe.xml"
     xml_file.write_text(xml_content, encoding="utf-8")
 
-    generator = XmlParser.parse_xml(xml_file)
+    parser = XmlParser(xml_file)
+    generator = parser.parse_xml()
     assert generator is not None
 
     results = list(generator)

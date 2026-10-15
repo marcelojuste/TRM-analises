@@ -1,15 +1,21 @@
-from models.base_model import FiscalBaseModel
+from src.models.base_model import FiscalBaseModel
 
 class SintegraBaseModel(FiscalBaseModel):
 
     CFOP_OPERATION_DIRECTION_DICTIONARY = {
-        "5" | "6" | "7": "Saida",
-        "1" | "2" | "3": "Entrada",    
+        "5": "Saida",
+        "6": "Saida",
+        "7": "Saida",
+        "1": "Entrada",
+        "2": "Entrada",
+        "3": "Entrada",
     }
 
     SINTEGRA_STATUS_DICTIONARY = {
-        "N" | "E": "Autorizada",
-        "S" | "X": "Nao autorizada"
+        "N": "Autorizada",
+        "E": "Autorizada",
+        "S": "Nao autorizada",
+        "X": "Nao autorizada"
     }
 
     def __init__(self, CFOP: str | None, model_code: str | None, **kwargs):

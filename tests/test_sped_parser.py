@@ -19,7 +19,7 @@ def file_parser(tmp_path: Path) -> SpedParser:
 
 def test_sped_parser_accepts_none(empty_parser: SpedParser):
     assert empty_parser.file_path is None
-    assert empty_parser.get_enterprise() == "EMPRESA_DESCONHECIDA"
+    assert empty_parser.enterprise == "EMPRESA_DESCONHECIDA"
 
 
 @pytest.mark.parametrize(
@@ -52,7 +52,6 @@ def test_parse_record_0000_detection(
     assert result["company_name"] == expected_name
     assert result["issuer_cnpj"] == expected_cnpj
 
-    # O SpedBaseModel é responsável por definir o sped_type com base no número de campos
     model = SpedBaseModel(
         sped_number_fields=result["fields"],
         access_key="35230112345678000195550010000000011234567890",
@@ -60,9 +59,9 @@ def test_parse_record_0000_detection(
         cnpj_issuer=result["issuer_cnpj"],
         total_value=1000,
         emission_date="2023-01-01",
+        operation_direction="Saída", 
     )
     assert model.sped_type == expected_type
-
 
 def test_parse_record_c100_valid_line(file_parser: SpedParser):
     valid_c100_line = (
@@ -106,7 +105,7 @@ def test_parse_record_c100_invalid_lines(file_parser: SpedParser, invalid_line: 
     ],
 )
 def test_format_sped_date(raw_date: str, expected_iso_date: str):
-    assert SpedParser._format_sped_date(raw_date) == expected_iso_date
+    assert SpedParser._format_date(raw_date) == expected_iso_date
 
 
 @pytest.mark.parametrize(
