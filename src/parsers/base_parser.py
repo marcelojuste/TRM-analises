@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Generator, Optional
 
-
 class FiscalDocumentBaseModelParser:
 
     SUPPORTED_ENCODINGS = ("utf-8", "latin-1", "utf-8-sig")

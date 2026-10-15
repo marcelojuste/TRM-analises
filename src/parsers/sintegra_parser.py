@@ -1,9 +1,8 @@
 from pathlib import Path
-from typing import Generator, Optional, Tuple
+from typing import Generator, Optional
 
-from src.models.sintegra_model import SintegraBaseModel
+from src.models.sintegra_model import SintegraModel
 from src.parsers.base_parser import FiscalDocumentBaseModelParser
-
 
 class SintegraParser(FiscalDocumentBaseModelParser):
 
@@ -51,7 +50,7 @@ class SintegraParser(FiscalDocumentBaseModelParser):
             "total_value": int(raw_value) if raw_value.isdigit() else 0,
         }
 
-    def parse_sintegra(self) -> Generator[Tuple, None, None]:
+    def parse_sintegra(self) -> Generator[tuple, None, None]:
         parsed_10 = None
 
         for line in self._read_lines():
@@ -92,7 +91,7 @@ class SintegraParser(FiscalDocumentBaseModelParser):
             if not document_data or any(value is None for value in document_data.values()):
                 continue
 
-            sintegra_document = SintegraBaseModel(
+            sintegra_document = SintegraModel(
                 cnpj_issuer=self.cnpj_issuer,
                 **document_data
             )

@@ -1,7 +1,6 @@
 from src.models.base_model import FiscalBaseModel
 
-
-class XmlBaseModel(FiscalBaseModel):
+class XmlModel(FiscalBaseModel):
     access_key: str
 
     NFE_KEY_OPERATION_DICTIONARY = {

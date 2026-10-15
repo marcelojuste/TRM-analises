@@ -1,8 +1,8 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Generator, List, Optional
+from typing import Generator, Optional
 
-from src.models.xml_model import XmlBaseModel
+from src.models.xml_model import XmlModel
 from src.parsers.base_parser import FiscalDocumentBaseModelParser
 
 
@@ -71,7 +71,7 @@ class XmlParser(FiscalDocumentBaseModelParser):
         raw_total_amount = self._extract_tag_text(nfe_info_element, "vNF")
         total_value_cents = self._convert_to_cents(raw_total_amount)
 
-        xml_document = XmlBaseModel(
+        xml_document = XmlModel(
             access_key=access_key,
             cnpj_issuer=issuer_cnpj,
             total_value=total_value_cents,

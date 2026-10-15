@@ -1,6 +1,6 @@
 from src.models.base_model import FiscalBaseModel
 
-class SintegraBaseModel(FiscalBaseModel):
+class SintegraModel(FiscalBaseModel):
 
     CFOP_OPERATION_DIRECTION_DICTIONARY = {
         "T": True,

@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 from typing import Generator, Optional, Tuple
 
-from src.models.sped_model import SpedBaseModel
+from src.models.sped_model import SpedModel
 from src.parsers.base_parser import FiscalDocumentBaseModelParser
 
 
@@ -82,7 +82,7 @@ class SpedParser(FiscalDocumentBaseModelParser):
                 if not parsed_c100 or not parsed_0000 or sped_number_fields is None:
                     continue
 
-                sped_document = SpedBaseModel(
+                sped_document = SpedModel(
                     sped_number_fields=sped_number_fields,
                     access_key=parsed_c100.get("access_key"),
                     cnpj_issuer=parsed_0000.get("issuer_cnpj"),

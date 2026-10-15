@@ -1,12 +1,10 @@
-from src.models.xml_model import XmlBaseModel
+from src.models.xml_model import XmlModel
 
-class SpedBaseModel(XmlBaseModel):
-    sped_type: str
+class SpedModel(XmlModel):
 
-    def __init__(self, sped_number_fields: int, **kwargs):
+    def __init__(self, access_key: str, sped_number_fields: int, **kwargs):
         self.sped_type = "EFD_CONTRIBUICOES" if sped_number_fields >= 18 else "EFD_ICMS_IPI"
-        
-        super().__init__(**kwargs)
+        super().__init__(access_key=access_key, **kwargs)
 
     def to_tuple(self):
         return super().to_tuple() + (self.sped_type,)
