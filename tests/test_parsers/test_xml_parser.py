@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
 
-from src.models.xml_model import XmlBaseModel
+from src.models.xml_model import XmlModel
 from src.parsers.xml_parser import XmlParser
 
 
@@ -13,7 +13,7 @@ def test_convert_to_cents():
 
 
 def test_xml_base_model_tuple():
-    model = XmlBaseModel(
+    model = XmlModel(
         access_key="35230112345678000195550010000000011234567890",
         document_status_number=1,
         cnpj_issuer="12345678000195",

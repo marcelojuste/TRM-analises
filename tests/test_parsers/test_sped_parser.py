@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
 
-from src.models.sped_model import SpedBaseModel
+from src.models.sped_model import SpedModel
 from src.parsers.sped_parser import SpedParser
 
 
@@ -52,7 +52,7 @@ def test_parse_record_0000_detection(
     assert result["company_name"] == expected_name
     assert result["issuer_cnpj"] == expected_cnpj
 
-    model = SpedBaseModel(
+    model = SpedModel(
         sped_number_fields=result["fields"],
         access_key="35230112345678000195550010000000011234567890",
         document_status_number=1,
