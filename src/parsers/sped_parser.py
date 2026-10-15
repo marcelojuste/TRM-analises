@@ -13,6 +13,14 @@ class SpedParser(FiscalDocumentBaseModelParser):
     def __init__(self, sped_path: Path):
         super().__init__(sped_path)
 
+
+    @staticmethod
+    def _format_date(raw_date: str) -> str:
+        if len(raw_date) == 8 and raw_date.isdigit():
+            day, month, year = raw_date[0:2], raw_date[2:4], raw_date[4:8]
+            return f"{year}-{month}-{day}"
+        return "1900-01-01"
+
     def _parse_record_0000(self, line_0000: str) -> Optional[dict]:
         fields = line_0000.split(self.RECORD_DELIMITER)
         if len(fields) < 4 or fields[1] != "0000":

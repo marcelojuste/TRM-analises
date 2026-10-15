@@ -54,13 +54,6 @@ class FiscalDocumentBaseModelParser:
         except (ValueError, TypeError):
             return 0
 
-    @staticmethod
-    def _format_date(raw_date: str) -> str:
-        if len(raw_date) == 8 and raw_date.isdigit():
-            day, month, year = raw_date[0:2], raw_date[2:4], raw_date[4:8]
-            return f"{year}-{month}-{day}"
-        return "1900-01-01"
-
     @property
     def enterprise(self) -> str:
         return self.company_name or "EMPRESA_DESCONHECIDA"

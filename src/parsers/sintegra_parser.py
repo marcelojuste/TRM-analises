@@ -1,38 +1,60 @@
 from pathlib import Path
+from typing import Generator, Optional, Tuple
 
-from src.parsers.base_parser import FiscalDocumentBaseModelParser
 from src.models.sintegra_model import SintegraBaseModel
+from src.parsers.base_parser import FiscalDocumentBaseModelParser
+
 
 class SintegraParser(FiscalDocumentBaseModelParser):
 
-    def __init__(self, sintegra_path: Path):
+    def __init__(self, sintegra_path: Optional[Path] = None):
         super().__init__(sintegra_path)
+        self.cnpj_issuer: Optional[str] = None
 
-    def _parse_record_10(self, line_10: str) -> dict: 
+    @staticmethod
+    def _format_date(raw_date: str) -> str:
+        if len(raw_date) == 8 and raw_date.isdigit():
+            year, month, day = raw_date[0:4], raw_date[4:6], raw_date[6:8]
+            return f"{year}-{month}-{day}"
+        return "1900-01-01"
+
+    def _parse_record_10(self, line_10: str) -> Optional[dict]:
+        if len(line_10) < 126 or not line_10.startswith("10"):
+            return None
+
         return {
-            "company_name": line_10[30:64],
-            "cnpj_issuer": line_10[2:15]
+            "company_name": line_10[30:65].strip(),
+            "cnpj_issuer": line_10[2:16].strip(),
         }
 
-    def _parse_record_50_51(self, line_50_51: str) -> dict:
+    def _parse_record_50(self, line_50: str) -> Optional[dict]:
+        if len(line_50) < 127 or not line_50.startswith(("50", "51")):
+            return None
+
+        raw_value = line_50[56:69].strip()
+
         return {
-            "emission_date": line_50_51[30:37],
-            "operation_type_code": line_50_51[55],
-            "total_value": line_50_51[56:68],
-            "document_status_code": line_50_51[122]
+            "emission_date": line_50[30:38].strip(),
+            "operation_type_code": line_50[55:56],
+            "total_value": int(raw_value) if raw_value.isdigit() else 0,
+            "document_status_code": line_50[126:127],
         }
 
-    def _parse_record_61(self, line_61: str) -> dict:
+    def _parse_record_61(self, line_61: str) -> Optional[dict]:
+        if len(line_61) < 119 or not line_61.startswith("61"):
+            return None
+
+        raw_value = line_61[57:70].strip()
+
         return {
-            "emission_date": line_61[30:37],
-            "total_value": line_61[57:69]
+            "emission_date": line_61[30:38].strip(),
+            "total_value": int(raw_value) if raw_value.isdigit() else 0,
         }
 
-    def _parse_sintegra_file(self):
+    def parse_sintegra(self) -> Generator[Tuple, None, None]:
         parsed_10 = None
 
         for line in self._read_lines():
-
             if line.startswith("10"):
                 parsed_10 = self._parse_record_10(line)
                 if parsed_10:

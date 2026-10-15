@@ -2,8 +2,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Generator, List, Optional
 
-from src.parsers.base_parser import FiscalDocumentBaseModelParser
 from src.models.xml_model import XmlBaseModel
+from src.parsers.base_parser import FiscalDocumentBaseModelParser
 
 
 class XmlParser(FiscalDocumentBaseModelParser):
