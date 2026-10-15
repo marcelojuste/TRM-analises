@@ -1,111 +1,83 @@
 from pathlib import Path
 import pytest
 
-from src.parsers.sped_parser import SpedParser
-
-@pytest.fixture
-def empty_parser() -> SpedParser:
-    return SpedParser(None)
+from src.models.xml_model import XmlBaseModel
+from src.parsers.xml_parser import XmlParser
 
 
-@pytest.fixture
-def file_parser(tmp_path: Path) -> SpedParser:
-    fake_file = tmp_path / "fake_sped.txt"
-    fake_file.touch()
-    return SpedParser(fake_file)
+def test_list_xml_files(tmp_path: Path):
+    xml_file = tmp_path / "test.xml"
+    xml_file.write_text("<root></root>")
 
-def test_sped_parser_accepts_none(empty_parser: SpedParser):
-    assert empty_parser.file_path is None
-    assert empty_parser.get_enterprise() == "EMPRESA_DESCONHECIDA"
+    txt_file = tmp_path / "test.txt"
+    txt_file.write_text("hello")
+
+    files = XmlParser.list_xml_files(tmp_path)
+    assert len(files) == 1
+    assert files[0] == xml_file
 
 
-@pytest.mark.parametrize(
-    "line_0000, expected_type, expected_name, expected_cnpj",
-    [
-        (
-            "|0000|005|0|01012023|31012023|EMPRESA TESTE SA|12345678000195|",
-            "EFD_ICMS_IPI",
-            "EMPRESA TESTE SA",
-            "12345678000195",
-        ),
-        (
-            "|0000|005|0|01012023|31012023|EMPRESA CONTRIBUICOES LTDA|12345678000195|MG|3106200||0|||||||",
-            "EFD_CONTRIBUICOES",
-            "EMPRESA CONTRIBUICOES LTDA",
-            "12345678000195",
-        ),
-    ],
-)
+def test_convert_to_cents():
+    assert XmlParser._convert_to_cents("150.55") == 15055
+    assert XmlParser._convert_to_cents("0") == 0
+    assert XmlParser._convert_to_cents("") == 0
+    assert XmlParser._convert_to_cents(None) == 0
 
-def test_parse_record_0000_detection(
-    empty_parser: SpedParser,
-    line_0000: str,
-    expected_type: str,
-    expected_name: str,
-    expected_cnpj: str,
-):
-    empty_parser._parse_record_0000(line_0000)
 
-    assert empty_parser.sped_type == expected_type
-    assert empty_parser.company_name == expected_name
-    assert empty_parser.issuer_cnpj == expected_cnpj
-
-def test_parse_record_c100_valid_line(file_parser: SpedParser):
-    valid_c100_line = (
-        "|C100|1|0|PART001|55|00|1|100|"
-        "12345678901234567890123456789012345678901234|"
-        "01052023|01052023|150,55|"
+def test_xml_base_model_tuple():
+    model = XmlBaseModel(
+        access_key="35230112345678000195550010000000011234567890",
+        document_status_number=1,
+        cnpj_issuer="12345678000195",
+        total_value=15055,
+        emission_date="2023-01-01",
     )
 
-    result = file_parser._parse_record_c100(valid_c100_line)
-
-    assert result == {
-        "nfe_model": 55,
-        "document_status": "00",
-        "access_key": "12345678901234567890123456789012345678901234",
-        "emission_date": "2023-05-01",
-        "total_value": 15055,
-    }
-
-
-@pytest.mark.parametrize(
-    "invalid_line",
-    [
-        "|C100|0|0|PART001|55|00|1|100|12345678901234567890123456789012345678901234|01052023|01052023|150,55|",
-        "|C100|1|0|PART001|55|00|1|100|123456789|01052023|01052023|150,55|",
-        "|C100|1|0|PART001|55|00|",
-    ],
-)
-
-def test_parse_record_c100_invalid_lines(file_parser: SpedParser, invalid_line: str):
-    result = file_parser._parse_record_c100(invalid_line)
-
-    assert result is None
+    assert model.to_tuple() == (
+        "12345678000195",
+        15055,
+        "2023-01-01",
+        "Saída",
+        "35230112345678000195550010000000011234567890",
+        "NFe",
+    )
 
 
-@pytest.mark.parametrize(
-    "raw_date, expected_iso_date",
-    [
-        ("01052023", "2023-05-01"),
-        ("31122026", "2026-12-31"),
-        ("invalid", "1900-01-01"),
-        ("", "1900-01-01"),
-    ],
-)
+def test_parse_xml_valid(tmp_path: Path):
+    xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+    <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe">
+        <NFe>
+            <infNFe Id="NFe35230112345678000195550010000000011234567890">
+                <ide>
+                    <tpAmb>1</tpAmb>
+                    <dhEmi>2023-01-01T10:00:00-03:00</dhEmi>
+                    <tpNF>1</tpNF>
+                </ide>
+                <emit>
+                    <CNPJ>12345678000195</CNPJ>
+                </emit>
+                <total>
+                    <ICMSTot>
+                        <vNF>150.55</vNF>
+                    </ICMSTot>
+                </total>
+            </infNFe>
+        </NFe>
+    </nfeProc>
+    """
+    xml_file = tmp_path / "valid_nfe.xml"
+    xml_file.write_text(xml_content, encoding="utf-8")
 
-def test_format_sped_date(raw_date: str, expected_iso_date: str):
-    assert SpedParser._format_sped_date(raw_date) == expected_iso_date
+    generator = XmlParser.parse_xml(xml_file)
+    assert generator is not None
 
-
-@pytest.mark.parametrize(
-    "raw_val, expected_cents",
-    [
-        ("150,55", 15055),
-        ("0,00", 0),
-        ("100", 10000),
-        (None, 0),
-    ],
-)
-
-def test_convert_to_cents(raw_val: str, expected_cents: int):
-    assert SpedParser._convert_to_cents(raw_val) == expected_cents
+    results = list(generator)
+    assert len(results) == 1
+    assert results[0] == (
+        "12345678000195",
+        15055,
+        "2023-01-01",
+        "Saída",
+        "35230112345678000195550010000000011234567890",
+        "NFe",
+    )

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Generator
 import xml.etree.ElementTree as ET
 
 from src.models.xml_model import XmlBaseModel
@@ -47,7 +48,7 @@ class XmlParser:
         ]
 
     @classmethod
-    def parse_xml(cls, xml_path: Path | str) -> XmlBaseModel | None:
+    def parse_xml(cls, xml_path: Path | str) -> Generator[tuple[str, str, int, str, int], None, None] | None:
         file_path = Path(xml_path)
 
         if not file_path.exists() or file_path.stat().st_size == 0:
@@ -90,10 +91,12 @@ class XmlParser:
         raw_total_amount = cls._extract_tag_text(nfe_info_element, "vNF")
         total_value_cents = cls._convert_to_cents(raw_total_amount)
 
-        return XmlBaseModel(
+        xml_document = XmlBaseModel(
             access_key=access_key,
             cnpj_issuer=issuer_cnpj,
             total_value=total_value_cents,
             emission_date=emission_date,
             document_status_number=operation_type_number,
         )
+
+        yield xml_document.to_tuple()

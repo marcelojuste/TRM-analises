@@ -1,6 +1,7 @@
 from pathlib import Path
 import pytest
 
+from src.models.sped_model import SpedBaseModel
 from src.parsers.sped_parser import SpedParser
 
 
@@ -45,11 +46,22 @@ def test_parse_record_0000_detection(
     expected_name: str,
     expected_cnpj: str,
 ):
-    empty_parser._parse_record_0000(line_0000)
+    result = empty_parser._parse_record_0000(line_0000)
 
-    assert empty_parser.sped_type == expected_type
-    assert empty_parser.company_name == expected_name
-    assert empty_parser.issuer_cnpj == expected_cnpj
+    assert result is not None
+    assert result["company_name"] == expected_name
+    assert result["issuer_cnpj"] == expected_cnpj
+
+    # O SpedBaseModel é responsável por definir o sped_type com base no número de campos
+    model = SpedBaseModel(
+        sped_number_fields=result["fields"],
+        access_key="35230112345678000195550010000000011234567890",
+        document_status_number=1,
+        cnpj_issuer=result["issuer_cnpj"],
+        total_value=1000,
+        emission_date="2023-01-01",
+    )
+    assert model.sped_type == expected_type
 
 
 def test_parse_record_c100_valid_line(file_parser: SpedParser):

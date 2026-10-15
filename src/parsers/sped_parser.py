@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Generator, Optional, Tuple, Union
+from typing import Generator, List, Optional, Tuple, Union
 
 from src.models.sped_model import SpedBaseModel
 
@@ -14,13 +14,15 @@ class SpedParser:
 
     def __init__(self, sped_file: Optional[Union[Path, str]]):
         self.file_path: Optional[Path] = Path(sped_file) if sped_file is not None else None
-        self.company_name: Optional[str] = None
-        self.issuer_cnpj: str = ""
-        self.sped_type: str = "EFD_ICMS_IPI"
         self._detected_encoding: Optional[str] = None
+        self.company_name: Optional[str] = None
+        self.sped_batch: List[SpedBaseModel] = []
 
     def get_enterprise(self) -> str:
         return self.company_name or "EMPRESA_DESCONHECIDA"
+
+    def get_sped_batch(self) -> List[SpedBaseModel]:
+        return self.sped_batch
 
     def _detect_encoding(self) -> str:
         if self._detected_encoding:
@@ -69,7 +71,7 @@ class SpedParser:
         except (ValueError, TypeError):
             return 0
 
-    def parse_metadata_only(self) -> None:
+    def _parse_metadata_only(self) -> None:
         for line in self._read_lines():
             if line.startswith(f"{self.RECORD_DELIMITER}0000{self.RECORD_DELIMITER}"):
                 self._parse_record_0000(line)
@@ -80,13 +82,17 @@ class SpedParser:
         if len(fields) < 4 or fields[1] != "0000":
             return
 
-        self.sped_type = "EFD_CONTRIBUICOES" if len(fields) >= 18 else "EFD_ICMS_IPI"
-
         if len(fields) > 6 and fields[6].strip():
-            self.company_name = fields[6].strip()
+            company_name = fields[6].strip()
 
         if len(fields) > 7:
-            self.issuer_cnpj = "".join(filter(str.isdigit, fields[7].strip()))
+            issuer_cnpj = "".join(filter(str.isdigit, fields[7].strip()))
+
+        return {
+            "fields": len(fields),
+            "company_name": company_name,
+            "issuer_cnpj": issuer_cnpj
+        }
 
     def _parse_record_c100(self, line: str) -> Optional[dict]:
         fields = line.split(self.RECORD_DELIMITER)
@@ -122,21 +128,23 @@ class SpedParser:
     def parse_sped(self) -> Generator[Tuple, None, None]:
         for line in self._read_lines():
             if line.startswith(f"{self.RECORD_DELIMITER}0000{self.RECORD_DELIMITER}"):
-                self._parse_record_0000(line)
+                parsed_0000 = self._parse_record_0000(line)
+                self.company_name = parsed_0000["company_name"]
             elif line.startswith(f"{self.RECORD_DELIMITER}C100{self.RECORD_DELIMITER}"):
                 parsed_c100 = self._parse_record_c100(line)
                 if not parsed_c100:
                     continue
 
-                fiscal_document = SpedBaseModel(
-                    sped_number_fields=18 if self.sped_type == "EFD_CONTRIBUICOES" else 1,
+                sped_document = SpedBaseModel(
+                    sped_number_fields=parsed_0000["fields"],
                     access_key=parsed_c100["access_key"],
-                    cnpj_issuer=self.issuer_cnpj,
+                    cnpj_issuer=parsed_0000["issuer_cnpj"],
                     total_value=parsed_c100["total_value"],
                     emission_date=parsed_c100["emission_date"],
-                    document_status_number=1,  # 1 para Saída
+                    document_status_number=parsed_c100["document_status"],
                 )
-                yield fiscal_document.to_tuple()
+
+                yield sped_document.to_tuple()
 
     def __enter__(self):
         return self
