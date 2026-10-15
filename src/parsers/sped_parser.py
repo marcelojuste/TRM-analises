@@ -1,47 +1,17 @@
+import re
 from pathlib import Path
-from typing import Generator, List, Optional, Tuple, Union
+from typing import Generator, Optional, Tuple
 
+from parsers.base_parser import FiscalDocumentBaseModelParser
 from src.models.sped_model import SpedBaseModel
 
 
-class SpedParser:
+class SpedParser(FiscalDocumentBaseModelParser):
 
-    SUPPORTED_ENCODINGS = ("utf-8", "latin-1", "utf-8-sig")
-    DEFAULT_ENCODING = "utf-8"
-    DEFAULT_FALLBACK_ENCODING = "latin-1"
     RECORD_DELIMITER = "|"
-    BUFFER_SIZE_BYTES = 4096
 
-    def __init__(self, sped_file: Optional[Union[Path, str]]):
-        self.file_path: Optional[Path] = Path(sped_file) if sped_file is not None else None
-        self._detected_encoding: Optional[str] = None
-        self.company_name: Optional[str] = None
-        self.sped_batch: List[SpedBaseModel] = []
-
-    def get_enterprise(self) -> str:
-        return self.company_name or "EMPRESA_DESCONHECIDA"
-
-    def get_sped_batch(self) -> List[SpedBaseModel]:
-        return self.sped_batch
-
-    def _detect_encoding(self) -> str:
-        if self._detected_encoding:
-            return self._detected_encoding
-
-        if not self.file_path or not self.file_path.exists():
-            return self.DEFAULT_ENCODING
-
-        for encoding in self.SUPPORTED_ENCODINGS:
-            try:
-                with open(self.file_path, "r", encoding=encoding) as file_stream:
-                    file_stream.read(self.BUFFER_SIZE_BYTES)
-                self._detected_encoding = encoding
-                return encoding
-            except UnicodeDecodeError:
-                continue
-
-        self._detected_encoding = self.DEFAULT_FALLBACK_ENCODING
-        return self._detected_encoding
+    def __init__(self, sped_path: Path):
+        super().__init__(sped_path)
 
     def _read_lines(self) -> Generator[str, None, None]:
         if not self.file_path or not self.file_path.exists():
@@ -54,44 +24,29 @@ class SpedParser:
                 if stripped_line:
                     yield stripped_line
 
-    @staticmethod
-    def _format_sped_date(raw_date: str) -> str:
-        if len(raw_date) == 8 and raw_date.isdigit():
-            day, month, year = raw_date[0:2], raw_date[2:4], raw_date[4:8]
-            return f"{year}-{month}-{day}"
-        return "1900-01-01"
-
-    @staticmethod
-    def _convert_to_cents(raw_value: str) -> int:
-        if not raw_value:
-            return 0
-        try:
-            normalized_value = raw_value.replace(",", ".")
-            return int(round(float(normalized_value) * 100))
-        except (ValueError, TypeError):
-            return 0
-
     def _parse_metadata_only(self) -> None:
         for line in self._read_lines():
             if line.startswith(f"{self.RECORD_DELIMITER}0000{self.RECORD_DELIMITER}"):
                 self._parse_record_0000(line)
                 break
 
-    def _parse_record_0000(self, line_0000: str) -> None:
+    def _parse_record_0000(self, line_0000: str) -> Optional[dict]:
         fields = line_0000.split(self.RECORD_DELIMITER)
         if len(fields) < 4 or fields[1] != "0000":
-            return
+            return None
 
+        company_name = ""
         if len(fields) > 6 and fields[6].strip():
             company_name = fields[6].strip()
 
+        issuer_cnpj = ""
         if len(fields) > 7:
-            issuer_cnpj = "".join(filter(str.isdigit, fields[7].strip()))
+            issuer_cnpj = re.sub(r"\D", "", fields[7].strip())
 
         return {
             "fields": len(fields),
             "company_name": company_name,
-            "issuer_cnpj": issuer_cnpj
+            "issuer_cnpj": issuer_cnpj,
         }
 
     def _parse_record_c100(self, line: str) -> Optional[dict]:
@@ -114,7 +69,7 @@ class SpedParser:
             nfe_model = 55
 
         document_status = fields[6] or "00"
-        emission_date = self._format_sped_date(fields[10])
+        emission_date = self._format_date(fields[10])
         total_value_cents = self._convert_to_cents(fields[12])
 
         return {
@@ -126,13 +81,16 @@ class SpedParser:
         }
 
     def parse_sped(self) -> Generator[Tuple, None, None]:
+        parsed_0000 = None
+
         for line in self._read_lines():
             if line.startswith(f"{self.RECORD_DELIMITER}0000{self.RECORD_DELIMITER}"):
                 parsed_0000 = self._parse_record_0000(line)
-                self.company_name = parsed_0000["company_name"]
+                if parsed_0000:
+                    self.company_name = parsed_0000["company_name"]
             elif line.startswith(f"{self.RECORD_DELIMITER}C100{self.RECORD_DELIMITER}"):
                 parsed_c100 = self._parse_record_c100(line)
-                if not parsed_c100:
+                if not parsed_c100 or not parsed_0000:
                     continue
 
                 sped_document = SpedBaseModel(
