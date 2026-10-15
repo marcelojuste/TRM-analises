@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Generator, Optional
 
 
 class FiscalDocumentBaseModelParser:
@@ -32,6 +32,17 @@ class FiscalDocumentBaseModelParser:
 
         self._detected_encoding = self.DEFAULT_FALLBACK_ENCODING
         return self._detected_encoding
+
+    def _read_lines(self) -> Generator[str, None, None]:
+        if not self.file_path or not self.file_path.exists():
+            return
+
+        encoding = self._detect_encoding()
+        with open(self.file_path, "r", encoding=encoding, errors="replace") as file_stream:
+            for line in file_stream:
+                stripped_line = line.strip()
+                if stripped_line:
+                    yield stripped_line
 
     @staticmethod
     def _convert_to_cents(amount_str: str) -> int:

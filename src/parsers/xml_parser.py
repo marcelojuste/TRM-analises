@@ -29,18 +29,6 @@ class XmlParser(FiscalDocumentBaseModelParser):
                 return node
         return None
 
-    @classmethod
-    def list_xml_files(cls, directory: Path | str) -> List[Path]:
-        directory_path = Path(directory)
-        if not directory_path.exists() or not directory_path.is_dir():
-            raise FileNotFoundError(f"Diretório inválido ou inexistente: {directory}")
-
-        return [
-            file_path
-            for file_path in directory_path.rglob("*")
-            if file_path.is_file() and file_path.suffix.lower() == ".xml"
-        ]
-
     def parse_xml(self, xml_path: Optional[Path] = None) -> Generator[tuple[str, str, int, str, int], None, None] | None:
         file_path = xml_path or self.file_path
         if not file_path or not file_path.exists() or file_path.stat().st_size == 0:

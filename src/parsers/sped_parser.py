@@ -2,46 +2,24 @@ import re
 from pathlib import Path
 from typing import Generator, Optional, Tuple
 
-from src.parsers.xml_parser import XmlParser
 from src.models.sped_model import SpedBaseModel
+from src.parsers.base_parser import FiscalDocumentBaseModelParser
 
 
-class SpedParser(XmlParser):
+class SpedParser(FiscalDocumentBaseModelParser):
 
     RECORD_DELIMITER = "|"
 
     def __init__(self, sped_path: Path):
         super().__init__(sped_path)
 
-    def _read_lines(self) -> Generator[str, None, None]:
-        if not self.file_path or not self.file_path.exists():
-            return
-
-        encoding = self._detect_encoding()
-        with open(self.file_path, "r", encoding=encoding, errors="replace") as file_stream:
-            for line in file_stream:
-                stripped_line = line.strip()
-                if stripped_line:
-                    yield stripped_line
-
-    def _parse_metadata_only(self) -> None:
-        for line in self._read_lines():
-            if line.startswith(f"{self.RECORD_DELIMITER}0000{self.RECORD_DELIMITER}"):
-                self._parse_record_0000(line)
-                break
-
     def _parse_record_0000(self, line_0000: str) -> Optional[dict]:
         fields = line_0000.split(self.RECORD_DELIMITER)
         if len(fields) < 4 or fields[1] != "0000":
             return None
 
-        company_name = ""
-        if len(fields) > 6 and fields[6].strip():
-            company_name = fields[6].strip()
-
-        issuer_cnpj = ""
-        if len(fields) > 7:
-            issuer_cnpj = re.sub(r"\D", "", fields[7].strip())
+        company_name = fields[6].strip() if len(fields) > 6 else ""
+        issuer_cnpj = re.sub(r"\D", "", fields[7].strip()) if len(fields) > 7 else ""
 
         return {
             "fields": len(fields),
@@ -82,26 +60,27 @@ class SpedParser(XmlParser):
 
     def parse_sped(self) -> Generator[Tuple, None, None]:
         parsed_0000 = None
-        sped_number_fields: int = 0
+        sped_number_fields: Optional[int] = None
 
         for line in self._read_lines():
             if line.startswith(f"{self.RECORD_DELIMITER}0000{self.RECORD_DELIMITER}"):
                 parsed_0000 = self._parse_record_0000(line)
                 if parsed_0000:
-                    self.company_name = parsed_0000["company_name"]
-                    sped_number_fields = parsed_0000["fields"]
+                    self.company_name = parsed_0000.get("company_name")
+                    sped_number_fields = parsed_0000.get("fields")
+
             elif line.startswith(f"{self.RECORD_DELIMITER}C100{self.RECORD_DELIMITER}"):
                 parsed_c100 = self._parse_record_c100(line)
-                if not parsed_c100 or not parsed_0000:
+                if not parsed_c100 or not parsed_0000 or sped_number_fields is None:
                     continue
 
                 sped_document = SpedBaseModel(
                     sped_number_fields=sped_number_fields,
-                    access_key=parsed_c100["access_key"],
-                    cnpj_issuer=parsed_0000["issuer_cnpj"],
-                    total_value=parsed_c100["total_value"],
-                    emission_date=parsed_c100["emission_date"],
-                    document_status_number=parsed_c100["document_status"]
+                    access_key=parsed_c100.get("access_key"),
+                    cnpj_issuer=parsed_0000.get("issuer_cnpj"),
+                    total_value=parsed_c100.get("total_value"),
+                    emission_date=parsed_c100.get("emission_date"),
+                    document_status_number=parsed_c100.get("document_status"),
                 )
 
                 yield sped_document.to_tuple()
