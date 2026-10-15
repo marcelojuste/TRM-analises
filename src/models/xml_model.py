@@ -7,8 +7,6 @@ class XmlBaseModel(FiscalBaseModel):
     NFE_KEY_OPERATION_DICTIONARY = {
         "0": "Entrada",
         "1": "Saída",
-        0: "Entrada",
-        1: "Saída",
     }
 
     NFE_KEY_STATUS_DICTIONARY = {
@@ -16,8 +14,6 @@ class XmlBaseModel(FiscalBaseModel):
         "01": "Autorizada",
         "02": "Nao autorizada",
         "03": "Nao autorizada",
-        1: "Autorizada",
-        0: "Nao autorizada",
     }
 
     def __init__(
