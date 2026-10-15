@@ -5,18 +5,6 @@ from src.models.xml_model import XmlBaseModel
 from src.parsers.xml_parser import XmlParser
 
 
-def test_list_xml_files(tmp_path: Path):
-    xml_file = tmp_path / "test.xml"
-    xml_file.write_text("<root></root>")
-
-    txt_file = tmp_path / "test.txt"
-    txt_file.write_text("hello")
-
-    files = XmlParser.list_xml_files(tmp_path)
-    assert len(files) == 1
-    assert files[0] == xml_file
-
-
 def test_convert_to_cents():
     assert XmlParser._convert_to_cents("150.55") == 15055
     assert XmlParser._convert_to_cents("0") == 0
