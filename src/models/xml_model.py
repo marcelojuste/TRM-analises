@@ -1,31 +1,29 @@
-from src.models.fiscal_base_model import FiscalBaseModel
+from models.base_model import FiscalBaseModel
 
 class XmlBaseModel(FiscalBaseModel):
     access_key: str
-    nfe_model: str
 
-    def __init__(self, access_key: str, document_status_number: int, **kwargs):
+    NFE_KEY_OPERATION_DICTIONARY = {
+        "00": "Entrada",
+        "01": "Saida"
+    }
+
+    NFE_KEY_STATUS_DICTIONARY = {
+        "00" | "01": "Autorizada",
+        "02" | "03": "Nao autorizada"
+    }
+
+    def __init__(self, access_key: str, operation_direction: str, document_status: str | None = None, **kwargs):
         self.access_key = access_key
 
-        if document_status_number == 0:
-            doc_status = "Entrada"
-        elif document_status_number == 1:
-            doc_status = "Saída"
-        else:
-            doc_status = "Unknown"
+        operation_type = self.NFE_KEY_OPERATION_DICTIONARY.get(operation_direction, None)
+        self.document_status = self.NFE_KEY_STATUS_DICTIONARY.get(document_status, None)
 
         if len(access_key) >= 22:
             model_code = access_key[20:22]
-            if model_code == "55":
-                self.nfe_model = "NFe"
-            elif model_code == "65":
-                self.nfe_model = "NFCe"
-            else:
-                self.nfe_model = "Unknown"
-        else:
-            self.nfe_model = "Unknown"
+            self.nfe_model = self.NFE_MODELS.get(model_code, None)
         
-        super().__init__(document_status=doc_status, **kwargs)
+        super().__init__(operation_type=operation_type, document_status=document_status, **kwargs)
 
     def to_tuple(self):
-        return super().to_tuple() + (self.access_key, self.nfe_model)
+        return super().to_tuple() + (self.access_key,)
