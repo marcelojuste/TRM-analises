@@ -12,10 +12,10 @@ class FiscalRepository:
         self.fiscal_archive_data_hub: list[tuple] = []
 
     def add_xml(self, xml: tuple) -> None:
-        self.xml_data_hub.append(xml)
+        self.xml_data_hub.extend(xml)
 
-    def add_fiscal_archive(self, fiscal_archive: tuple) -> None:
-        self.fiscal_archive_data_hub.append(fiscal_archive)
+    def add_fiscal_archive(self, fiscal_archive: list[tuple]) -> None:
+        self.fiscal_archive_data_hub.extend(fiscal_archive)
 
     def _clean_hubs(self) -> None:
         self.xml_data_hub.clear()

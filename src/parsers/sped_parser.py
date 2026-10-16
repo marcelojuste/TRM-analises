@@ -13,7 +13,6 @@ class SpedParser(FiscalDocumentBaseModelParser):
     def __init__(self, sped_path: Path):
         super().__init__(sped_path)
 
-
     @staticmethod
     def _format_date(raw_date: str) -> str:
         if len(raw_date) == 8 and raw_date.isdigit():
