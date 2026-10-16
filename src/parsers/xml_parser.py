@@ -12,8 +12,9 @@ class XmlParser(FiscalDocumentBaseModelParser):
     ACCESS_KEY_LENGTH = 44
     INVALID_OPERATION_TYPE = -1
 
-    def __init__(self, xml_path: Optional[Path] = None):
-        super().__init__(xml_path)
+    def __init__(self, xml_path: Optional[Path] = None, **kwargs):
+        super.__init__(self.file_path, **kwargs)
+        self.file_path = xml_path
 
     @staticmethod
     def _extract_tag_text(element: ET.Element, target_tag: str) -> str:
@@ -29,13 +30,12 @@ class XmlParser(FiscalDocumentBaseModelParser):
                 return node
         return None
 
-    def parse_xml(self, xml_path: Optional[Path] = None) -> Generator[tuple[str, str, int, str, int], None, None] | None:
-        file_path = xml_path or self.file_path
-        if not file_path or not file_path.exists() or file_path.stat().st_size == 0:
+    def parse_xml(self) -> Generator[tuple[str, str, int, str, int], None, None] | None:
+        if not self.file_path or not self.file_path.exists() or self.file_path.stat().st_size == 0:
             return None
 
         try:
-            tree = ET.parse(file_path)
+            tree = ET.parse(self.file_path)
             root_element = tree.getroot()
         except ET.ParseError:
             return None

@@ -4,6 +4,7 @@ from src.models.sintegra_model import SintegraModel
 
 
 class FiscalRepository:
+    
     def __init__(self, is_sped: bool):
         self.fiscal_archive_type = "SPED" if is_sped else "SINTEGRA"
 
