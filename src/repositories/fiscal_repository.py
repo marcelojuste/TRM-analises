@@ -16,8 +16,9 @@ class FiscalRepository:
     def add_fiscal_archive(self, fiscal_archive: tuple) -> None:
         self.fiscal_archive_data_hub.append(fiscal_archive)
 
-    def clean_hubs(self) -> None:
-        return
+    def _clean_hubs(self) -> None:
+        self.xml_data_hub.clear()
+        self.fiscal_archive_data_hub.clear()
 
     @property
     def xml_data_hub_length(self) -> int:
@@ -31,5 +32,4 @@ class FiscalRepository:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.xml_data_hub.clear()
-        self.fiscal_archive_data_hub.clear()
+        self._clean_hubs()
