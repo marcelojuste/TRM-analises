@@ -3,6 +3,7 @@ from typing import Any, Optional
 from pathlib import Path
 import pandas as pd
 import threading
+import logging
 import duckdb
 import ctypes
 import sys
@@ -15,6 +16,12 @@ from src.parsers.sped_parser import SpedParser
 from src.parsers.xml_parser import XmlParser
 from src.path_manager import PATHS
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    force=True
+)
+logger = logging.getLogger(__name__)
 
 class AuditService:
 
@@ -80,13 +87,19 @@ class AuditService:
     def _process_sintegra_files(self) -> None:
         sintegra_path = self.fiscal_archive_path
         if sintegra_path and sintegra_path.exists():
+            logger.info(f"Iniciando parse do arquivo Sintegra: {sintegra_path.name}")
             parser = SintegraParser(sintegra_path)
             sintegra_records = list(parser.parse_sintegra())
+            
             if parser.enterprise:
                 self.enterprise = parser.enterprise
+                
             if sintegra_records:
                 self._check_cancellation()
                 self.repository.add_fiscal_archive(sintegra_records)
+                logger.info(f"Total de registros lidos do arquivo Sintegra: {len(sintegra_records)}")
+            else:
+                logger.warning("Nenhum registro extraído do arquivo Sintegra.")
 
     @staticmethod
     def _parse_single_xml(xml_path: Path) -> list[tuple]:
@@ -148,6 +161,17 @@ class AuditService:
             raise FileNotFoundError("Arquivos fiscais não foram informados ou não existem.")
 
         df_xml, df_fiscal = self.repository.prepare_data_frames()
+
+        if not self.is_sped and not df_fiscal.empty:
+            df_nfe_saida = df_fiscal[
+                (df_fiscal["nfe_model"].isin(["55", "NFe"])) & 
+                (df_fiscal["operation_type"] == "Exit")
+            ]
+            logger.info(
+                f"[Sintegra DataFrame] Total de registros: {len(df_fiscal)} | "
+                f"NFes de Saída (Mod 55): {len(df_nfe_saida)} | "
+                f"Valor Total NFes de Saída: {df_nfe_saida['total_value'].sum() if not df_nfe_saida.empty else 0}"
+            )
         
         self.metrics = self.repository.calculate_metrics(df_xml, df_fiscal)
         audit_results_df = self._execute_audit_query(df_xml, df_fiscal)
@@ -157,3 +181,36 @@ class AuditService:
             "metrics": self.metrics,
             "audit_results": audit_results_df,
         }
+
+    def prepare_data_frames(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+        cols_xml = [
+            "cnpj_issuer",
+            "total_value",
+            "emission_date",
+            "operation_type",
+            "document_status",
+            "nfe_model",
+            "document_number",
+            "access_key",
+        ]
+
+        df_xml = pd.DataFrame(self.xml_data_hub, columns=cols_xml)
+
+        if self.is_sped:
+            cols_fiscal = cols_xml + ["sped_type"]
+        else:
+            cols_fiscal = [
+                "cnpj_issuer",
+                "total_value",
+                "emission_date",
+                "operation_type",
+                "document_status",
+                "nfe_model",
+                "document_number",
+            ]
+
+        df_fiscal = pd.DataFrame(self.fiscal_archive_data_hub, columns=cols_fiscal)
+
+        logger.info(f"DataFrame df_fiscal ({self.fiscal_archive_type}) montado com {len(df_fiscal)} linhas.")
+
+        return df_xml, df_fiscal

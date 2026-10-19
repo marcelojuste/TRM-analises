@@ -4,15 +4,18 @@ from src.models.base_model import FiscalBaseModel
 class SintegraModel(FiscalBaseModel):
 
     CFOP_OPERATION_DIRECTION_DICTIONARY = {
-        "T": True,
-        "P": False
+        "T": "Entry",
+        "0": "Entry",
+        "P": "Exit",
+        "1": "Exit",
+        "S": "Exit",
     }
 
     SINTEGRA_STATUS_DICTIONARY = {
-        "N": True,
-        "E": True,
-        "S": False,
-        "X": False
+        "N": "Autorized",
+        "E": "Autorized",
+        "S": "Cancelled",
+        "X": "Cancelled"
     }
 
     def __init__(
@@ -24,13 +27,11 @@ class SintegraModel(FiscalBaseModel):
     ):
         self.nfe_model = self.NFE_MODELS.get(model_code, model_code)
 
-        operation_type = None
         if operation_type_code:
-            operation_type = "Exit" if self.CFOP_OPERATION_DIRECTION_DICTIONARY.get(operation_type_code, True) else "Entry"
+            operation_type = self.CFOP_OPERATION_DIRECTION_DICTIONARY.get(operation_type_code)
 
-        document_status = None
         if document_status_code:
-            document_status = "Authorized" if self.SINTEGRA_STATUS_DICTIONARY.get(document_status_code, True) else "Cancelled"
+            document_status = self.SINTEGRA_STATUS_DICTIONARY.get(document_status_code)
 
         super().__init__(
             document_status=document_status, 

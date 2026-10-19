@@ -5,7 +5,7 @@ from src.parsers.sintegra_parser import SintegraParser
 
 
 LINE_50_VALIDA = (
-    "5007958391000109ISENTO        20260923MG550010090121407T0000000066070"
+    "5000003229613600ISENTO        20260901MG550020000145405P000000016757500000000000000000000000000000000000000000000000000000000N"
     "000000000000000000000000000000000000000000000000000000000N"
 )
 
@@ -59,9 +59,9 @@ def test_parse_record_50_valid_line(empty_parser: SintegraParser):
     result = empty_parser._parse_record_50(LINE_50_VALIDA)
 
     assert result is not None
-    assert result["emission_date"] == "20260923"
-    assert result["operation_type_code"] == "T"
-    assert result["total_value"] == 66070
+    assert result["emission_date"] == "20260901"
+    assert result["operation_type_code"] == "P"
+    assert result["total_value"] == 167575
     assert result["document_status_code"] == "N"
 
 

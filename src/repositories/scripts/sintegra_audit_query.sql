@@ -7,7 +7,7 @@ WITH xml_nfce_daily AS (
         COUNT(*) AS total_documents
     FROM df_xml
     WHERE nfe_model IN ('65', 'NFCe')
-      AND document_status NOT IN ('Unauthorized', 'Cancelled', '02', 'Nao autorizada')
+      AND document_status NOT IN ('Unauthorized', 'Cancelled', '02')
     GROUP BY cnpj_issuer, emission_date, nfe_model
 ),
 sintegra_61_daily AS (
@@ -47,59 +47,57 @@ nfce_audit AS (
        ON x.cnpj_issuer = s.cnpj_issuer 
       AND x.emission_date = s.emission_date
 ),
-xml_nfe_filtered AS (
+xml_nfe_daily AS (
     SELECT 
-        access_key, 
-        cnpj_issuer, 
-        total_value, 
-        emission_date, 
-        nfe_model, 
-        document_status, 
-        CAST(document_number AS VARCHAR) AS document_number
+        cnpj_issuer,
+        emission_date,
+        nfe_model,
+        SUM(total_value) AS total_value,
+        COUNT(*) AS total_documents
     FROM df_xml
     WHERE nfe_model IN ('55', 'NFe')
-      AND document_status NOT IN ('Unauthorized', 'Cancelled', '02', 'Nao autorizada')
+      AND document_status NOT IN ('Unauthorized', 'Cancelled')
+      AND operation_type = 'Exit'
+    GROUP BY cnpj_issuer, emission_date, nfe_model
 ),
-sintegra_50_filtered AS (
+sintegra_50_daily AS (
     SELECT 
-        cnpj_issuer, 
-        total_value, 
-        emission_date, 
-        nfe_model, 
-        document_status, 
-        CAST(document_number AS VARCHAR) AS document_number
+        cnpj_issuer,
+        emission_date,
+        nfe_model,
+        SUM(total_value) AS total_value
     FROM df_fiscal
     WHERE nfe_model IN ('55', 'NFe')
-      AND document_status NOT IN ('Unauthorized', 'Cancelled', '02', 'Nao autorizada')
+      AND document_status NOT IN ('Unauthorized', 'Cancelled')
+      AND operation_type = 'Exit'
+    GROUP BY cnpj_issuer, emission_date, nfe_model
 ),
 nfe_audit AS (
     SELECT 
-        x.access_key,
+        NULL AS access_key,
         COALESCE(x.nfe_model, s.nfe_model) AS nfe_model,
         COALESCE(x.cnpj_issuer, s.cnpj_issuer) AS cnpj_issuer,
-        COALESCE(x.document_number, s.document_number) AS document_number,
+        'TOTAL_DIARIO' AS document_number,
 
         x.total_value AS xml_value_cents,
         x.emission_date AS xml_emission_date,
-        x.document_status AS xml_status,
+        'Authorized' AS xml_status,
 
         s.total_value AS fiscal_value_cents,
         s.emission_date AS fiscal_emission_date,
-        s.document_status AS fiscal_status,
+        'Authorized' AS fiscal_status,
         'SINTEGRA_REC_50' AS fiscal_file_type,
 
         CASE 
-            WHEN x.document_number IS NULL THEN 'MISSING_XML'
-            WHEN s.document_number IS NULL THEN 'MISSING_SINTEGRA'
+            WHEN x.emission_date IS NULL THEN 'MISSING_XML'
+            WHEN s.emission_date IS NULL THEN 'MISSING_SINTEGRA'
             WHEN x.total_value IS DISTINCT FROM s.total_value THEN 'VALUE_DIVERGENCE'
-            WHEN x.document_status IS DISTINCT FROM s.document_status THEN 'STATUS_DIVERGENCE'
             ELSE 'OK'
         END AS audit_status
-    FROM xml_nfe_filtered x
-    FULL OUTER JOIN sintegra_50_filtered s 
+    FROM xml_nfe_daily x
+    FULL OUTER JOIN sintegra_50_daily s 
        ON x.cnpj_issuer = s.cnpj_issuer 
       AND x.emission_date = s.emission_date
-      AND x.document_number = s.document_number
 )
 
 SELECT * FROM nfce_audit WHERE audit_status != 'OK'
