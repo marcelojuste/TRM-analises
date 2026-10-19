@@ -11,6 +11,18 @@ except ImportError:
 from src.views.app import MainWindow
 
 
+def create_app():
+    if HAS_TKINTER_DND:
+        class AppWindow(MainWindow, TkinterDnD.DnDWrapper):
+            def __init__(self, *args, **kwargs):
+                MainWindow.__init__(self, *args, **kwargs)
+                self.TkdndVersion = TkinterDnD._require(self)
+
+        return AppWindow()
+    else:
+        return MainWindow()
+
+
 def main():
     if sys.platform.startswith("win"):
         try:
@@ -19,16 +31,7 @@ def main():
         except Exception:
             pass
 
-    if HAS_TKINTER_DND:
-        class DnDMainWindow(MainWindow, TkinterDnD.DnDWrapper):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.TkdndVersion = TkinterDnD._require(self)
-
-        app = DnDMainWindow()
-    else:
-        app = MainWindow()
-
+    app = create_app()
     app.mainloop()
 
 

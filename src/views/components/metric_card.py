@@ -1,8 +1,7 @@
 import customtkinter as ctk
 
-
 class MetricCard(ctk.CTkFrame):
-    
+
     def __init__(self, master, title: str, **kwargs):
         super().__init__(
             master,

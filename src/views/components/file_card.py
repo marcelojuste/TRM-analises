@@ -5,13 +5,41 @@ import customtkinter as ctk
 
 try:
     from tkinterdnd2 import DND_FILES
-    HAS_DND = True
+    HAS_TKINTER_DND = True
 except ImportError:
-    HAS_DND = False
+    HAS_TKINTER_DND = False
+
+
+class HoverRemoveButton(ctk.CTkButton):
+    """Botão de remoção personalizado (X) que escurece o vermelho ao passar o mouse."""
+
+    def __init__(self, master, command=None, **kwargs):
+        super().__init__(
+            master,
+            text="✕",
+            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+            fg_color="#FEE2E2",
+            text_color="#EF4444",
+            hover_color="#DC2626",
+            width=26,
+            height=26,
+            corner_radius=13,
+            command=command,
+            **kwargs
+        )
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+
+    def _on_enter(self, event):
+        self.configure(text_color="#FFFFFF")
+
+    def _on_leave(self, event):
+        self.configure(text_color="#EF4444")
 
 
 class BaseSelectionCard(ctk.CTkFrame):
-    
+    """Card expansível com suporte para drag and drop e distribuição 1/N de arquivos."""
+
     def __init__(
         self,
         master,
@@ -23,9 +51,10 @@ class BaseSelectionCard(ctk.CTkFrame):
         super().__init__(
             master,
             fg_color="#F1F5F9",
-            border_color="#E2E8F0",
+            border_color="#CBD5E1",
             border_width=1,
             corner_radius=12,
+            height=180,
             **kwargs
         )
         self.title_text = title
@@ -35,7 +64,7 @@ class BaseSelectionCard(ctk.CTkFrame):
 
         self._build_header()
         self._build_content_area()
-        self._setup_drag_and_drop()
+        self._setup_drag_and_drop(self)
 
     def _build_header(self):
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -47,8 +76,8 @@ class BaseSelectionCard(ctk.CTkFrame):
         self.lbl_icon = ctk.CTkLabel(
             self.title_left,
             text=self.icon_symbol,
-            font=ctk.CTkFont(size=14),
-            text_color="#2B7FFF"
+            font=ctk.CTkFont(size=15),
+            text_color="#2563EB"
         )
         self.lbl_icon.pack(side="left", padx=(0, 6))
 
@@ -62,13 +91,14 @@ class BaseSelectionCard(ctk.CTkFrame):
 
         self.btn_add = ctk.CTkButton(
             self.header_frame,
-            text="＋ Adicionar",
-            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+            text="＋",
+            font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
             fg_color="#10B981",
             hover_color="#059669",
             text_color="#FFFFFF",
-            height=26,
-            corner_radius=6,
+            width=28,
+            height=28,
+            corner_radius=14,
             command=self._on_add_clicked
         )
         self.btn_add.pack(side="right")
@@ -78,11 +108,11 @@ class BaseSelectionCard(ctk.CTkFrame):
         self.items_container.pack(fill="both", expand=True, padx=16, pady=(0, 12))
         self._render_empty_state()
 
-    def _setup_drag_and_drop(self):
-        if HAS_DND:
+    def _setup_drag_and_drop(self, widget):
+        if HAS_TKINTER_DND:
             try:
-                self.drop_target_register(DND_FILES)
-                self.dnd_bind("<<Drop>>", self._handle_drop)
+                widget.drop_target_register(DND_FILES)
+                widget.dnd_bind("<<Drop>>", self._handle_drop)
             except Exception:
                 pass
 
@@ -93,20 +123,21 @@ class BaseSelectionCard(ctk.CTkFrame):
 
         paths = self.winfo_toolkit().tk.splitlist(raw_data)
         for p_str in paths:
-            self.add_path(Path(p_str.strip("{}")))
+            clean_p = p_str.strip("{}").strip('"')
+            self.add_path(Path(clean_p))
 
     def _render_empty_state(self):
-        for widget in self.items_container.winfo_children():
-            widget.destroy()
+        for w in self.items_container.winfo_children():
+            w.destroy()
 
         self.lbl_empty = ctk.CTkLabel(
             self.items_container,
-            text="Arraste os arquivos/pastas para aqui ou clique em '＋ Adicionar'",
+            text="Arraste os arquivos/pastas para aqui\nou clique no botão ＋",
             font=ctk.CTkFont(family="Inter", size=11),
-            text_color="#94A3B8",
-            height=36
+            text_color="#94A3B8"
         )
-        self.lbl_empty.pack(fill="x", pady=4)
+        self.lbl_empty.pack(expand=True, fill="both")
+        self._setup_drag_and_drop(self.lbl_empty)
 
     def add_path(self, path: Path):
         if path and path.exists() and path not in self.selected_paths:
@@ -129,49 +160,49 @@ class BaseSelectionCard(ctk.CTkFrame):
         self._notify_change()
 
     def _render_items(self):
-        for widget in self.items_container.winfo_children():
-            widget.destroy()
+        """Renderiza os arquivos ocupando 1/N do espaço vertical disponível do container."""
+        for w in self.items_container.winfo_children():
+            w.destroy()
 
-        for path in self.selected_paths:
+        num_items = len(self.selected_paths)
+        if num_items == 0:
+            self._render_empty_state()
+            return
+
+        for i in range(num_items):
+            self.items_container.grid_rowconfigure(i, weight=1, uniform="item_row")
+        self.items_container.grid_columnconfigure(0, weight=1)
+
+        for idx, path in enumerate(self.selected_paths):
             item_frame = ctk.CTkFrame(
                 self.items_container,
                 fg_color="#FFFFFF",
                 border_color="#CBD5E1",
                 border_width=1,
-                corner_radius=6,
-                height=30
+                corner_radius=8
             )
-            item_frame.pack(fill="x", pady=2)
-            item_frame.pack_propagate(False)
+            item_frame.grid(row=idx, column=0, sticky="nsew", pady=2)
+            self._setup_drag_and_drop(item_frame)
 
             icon_item = "📁" if path.is_dir() else "📄"
             lbl_icon = ctk.CTkLabel(
                 item_frame, text=icon_item, font=ctk.CTkFont(size=12), text_color="#64748B"
             )
-            lbl_icon.pack(side="left", padx=(8, 4))
+            lbl_icon.pack(side="left", padx=(10, 6))
 
             lbl_path = ctk.CTkLabel(
                 item_frame,
                 text=path.name or str(path),
-                font=ctk.CTkFont(family="Inter", size=11),
+                font=ctk.CTkFont(family="Inter", size=11, weight="medium"),
                 text_color="#334155",
                 anchor="w"
             )
             lbl_path.pack(side="left", fill="x", expand=True, padx=4)
 
-            btn_remove = ctk.CTkButton(
-                item_frame,
-                text="✕",
-                font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
-                fg_color="transparent",
-                hover_color="#FEE2E2",
-                text_color="#EF4444",
-                width=24,
-                height=24,
-                corner_radius=4,
-                command=lambda p=path: self.remove_path(p)
+            btn_remove = HoverRemoveButton(
+                item_frame, command=lambda p=path: self.remove_path(p)
             )
-            btn_remove.pack(side="right", padx=4)
+            btn_remove.pack(side="right", padx=6)
 
     def _notify_change(self):
         if self.on_change and callable(self.on_change):
@@ -189,7 +220,6 @@ class BaseSelectionCard(ctk.CTkFrame):
 
 
 class XMLSelectionCard(BaseSelectionCard):
-    """Card responsável por selecionar de 1 a N pastas de XMLs (NF-e / NFC-e)."""
 
     def __init__(self, master, **kwargs):
         super().__init__(master, title="Diretórios de XMLs (NF-e / NFC-e)", icon="📁", **kwargs)
@@ -207,7 +237,6 @@ class XMLSelectionCard(BaseSelectionCard):
 
 
 class FiscalFileSelectionCard(BaseSelectionCard):
-    """Card responsável pelos arquivos fiscais .txt (Até 2 em SPED, 1 em Sintegra)."""
 
     def __init__(self, master, is_sped: bool = True, **kwargs):
         self.is_sped = is_sped

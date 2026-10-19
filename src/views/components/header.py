@@ -3,6 +3,7 @@ from PIL import Image
 
 from src.path_manager import PATHS
 
+
 class HeaderFrame(ctk.CTkFrame):
 
     def __init__(self, master, **kwargs):
@@ -59,31 +60,9 @@ class HeaderFrame(ctk.CTkFrame):
         )
         self.lbl_system.pack(side="right", padx=(12, 0), anchor="center")
 
-        self.status_badge = ctk.CTkLabel(
-            self.right_container,
-            text="● Modo SPED",
-            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
-            fg_color="#DBEAFE",
-            text_color="#1D4ED8",
-            corner_radius=12,
-            padx=12,
-            pady=4,
-        )
-        self.status_badge.pack(side="right", anchor="center")
-
     def update_mode_theme(self, is_sped: bool):
-        """Atualiza a cor do subtítulo e do selo conforme o modo fiscal ativo."""
+        """Atualiza a cor do subtítulo conforme o modo fiscal ativo."""
         if is_sped:
             self.lbl_subtitle.configure(text_color="#2563EB")
-            self.status_badge.configure(
-                text="● Modo SPED",
-                fg_color="#DBEAFE",
-                text_color="#1D4ED8"
-            )
         else:
             self.lbl_subtitle.configure(text_color="#EA580C")
-            self.status_badge.configure(
-                text="● Modo SINTEGRA",
-                fg_color="#FFEDD5",
-                text_color="#C2410C"
-            )
