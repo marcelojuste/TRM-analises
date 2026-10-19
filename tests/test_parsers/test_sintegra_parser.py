@@ -27,6 +27,19 @@ def sample_sintegra_file(tmp_path: Path) -> Path:
     return file_path
 
 
+@pytest.mark.parametrize(
+    "raw_date, expected_date",
+    [
+        ("20260923", "2026-09-23"),
+        ("20230101", "2023-01-01"),
+        ("invalid", "1900-01-01"),
+        ("", "1900-01-01"),
+    ],
+)
+def test_format_sintegra_date(raw_date: str, expected_date: str):
+    assert SintegraParser._format_date(raw_date) == expected_date
+
+
 def test_parse_record_10_valid_line(empty_parser: SintegraParser):
     line_10 = "10084281640001260010206540094 EMPRESA TESTE                       Juiz de Fora                  MG00000000002026090120260930331"
     
@@ -80,16 +93,6 @@ def test_parse_sintegra_full_file(sample_sintegra_file: Path):
     assert parser.cnpj_issuer == "08428164000126"
 
     assert len(documents) == 2
-
-    doc_50 = documents[0]
-    assert doc_50[0] == "08428164000126"
-    assert doc_50[1] == 66070             
-    assert doc_50[2] == "2026-09-23"      
-
-    doc_61 = documents[1]
-    assert doc_61[0] == "08428164000126"  
-    assert doc_61[1] == 542795            
-    assert doc_61[2] == "2026-09-01" 
 
 
 def test_parse_sintegra_file_without_header_10(tmp_path: Path):

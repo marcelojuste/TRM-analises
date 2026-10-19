@@ -13,45 +13,45 @@ class XmlParser(FiscalDocumentBaseModelParser):
     INVALID_OPERATION_TYPE = -1
 
     def __init__(self, xml_path: Optional[Path] = None, **kwargs):
-        super.__init__(self.file_path, **kwargs)
+        super().__init__(xml_path, **kwargs)
         self.file_path = xml_path
 
     @staticmethod
     def _extract_tag_text(element: ET.Element, target_tag: str) -> str:
         for node in element.iter():
-            if node.tag.rsplit("}", 1)[-1] == target_tag:
+            if isinstance(node.tag, str) and node.tag.rsplit("}", 1)[-1] == target_tag:
                 return node.text or ""
         return ""
 
     @staticmethod
     def _find_element_by_tag(element: ET.Element, target_tag: str) -> Optional[ET.Element]:
         for node in element.iter():
-            if node.tag.rsplit("}", 1)[-1] == target_tag:
+            if isinstance(node.tag, str) and node.tag.rsplit("}", 1)[-1] == target_tag:
                 return node
         return None
 
-    def parse_xml(self) -> Generator[tuple[str, str, int, str, int], None, None] | None:
+    def parse_xml(self) -> Generator[tuple, None, None]:
         if not self.file_path or not self.file_path.exists() or self.file_path.stat().st_size == 0:
-            return None
+            return
 
         try:
             tree = ET.parse(self.file_path)
             root_element = tree.getroot()
         except ET.ParseError:
-            return None
+            return
 
         nfe_info_element = self._find_element_by_tag(root_element, "infNFe")
         if nfe_info_element is None:
-            return None
+            return
 
         environment_type = self._extract_tag_text(nfe_info_element, "tpAmb")
         if environment_type != self.PRODUCTION_ENVIRONMENT_CODE:
-            return None
+            return
 
         raw_nfe_id = nfe_info_element.attrib.get("Id", "")
         access_key = raw_nfe_id.replace("NFe", "").strip()
         if len(access_key) != self.ACCESS_KEY_LENGTH:
-            return None
+            return
 
         issuer_cnpj = self._extract_tag_text(nfe_info_element, "CNPJ")
 

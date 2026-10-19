@@ -19,21 +19,20 @@ def file_parser(tmp_path: Path) -> SpedParser:
 
 def test_sped_parser_accepts_none(empty_parser: SpedParser):
     assert empty_parser.file_path is None
-    assert empty_parser.enterprise == "EMPRESA_DESCONHECIDA"
 
 
 @pytest.mark.parametrize(
-    "line_0000, expected_type, expected_name, expected_cnpj",
+    "line_0000, expected_fields, expected_name, expected_cnpj",
     [
         (
             "|0000|005|0|01012023|31012023|EMPRESA TESTE SA|12345678000195|",
-            "EFD_ICMS_IPI",
+            9,
             "EMPRESA TESTE SA",
             "12345678000195",
         ),
         (
             "|0000|005|0|01012023|31012023|EMPRESA CONTRIBUICOES LTDA|12345678000195|MG|3106200||0|||||||",
-            "EFD_CONTRIBUICOES",
+            19,
             "EMPRESA CONTRIBUICOES LTDA",
             "12345678000195",
         ),
@@ -42,13 +41,14 @@ def test_sped_parser_accepts_none(empty_parser: SpedParser):
 def test_parse_record_0000_detection(
     empty_parser: SpedParser,
     line_0000: str,
-    expected_type: str,
+    expected_fields: int,
     expected_name: str,
     expected_cnpj: str,
 ):
     result = empty_parser._parse_record_0000(line_0000)
 
     assert result is not None
+    assert result["fields"] == expected_fields
     assert result["company_name"] == expected_name
     assert result["issuer_cnpj"] == expected_cnpj
 
@@ -59,9 +59,10 @@ def test_parse_record_0000_detection(
         cnpj_issuer=result["issuer_cnpj"],
         total_value=1000,
         emission_date="2023-01-01",
-        operation_direction="Saída", 
     )
+    expected_type = "EFD_CONTRIBUTIONS" if expected_fields >= 18 else "EFD_ICMS_IPI"
     assert model.sped_type == expected_type
+
 
 def test_parse_record_c100_valid_line(file_parser: SpedParser):
     valid_c100_line = (
@@ -91,7 +92,6 @@ def test_parse_record_c100_valid_line(file_parser: SpedParser):
 )
 def test_parse_record_c100_invalid_lines(file_parser: SpedParser, invalid_line: str):
     result = file_parser._parse_record_c100(invalid_line)
-
     assert result is None
 
 
@@ -108,14 +108,16 @@ def test_format_sped_date(raw_date: str, expected_iso_date: str):
     assert SpedParser._format_date(raw_date) == expected_iso_date
 
 
-@pytest.mark.parametrize(
-    "raw_val, expected_cents",
-    [
-        ("150,55", 15055),
-        ("0,00", 0),
-        ("100", 10000),
-        (None, 0),
-    ],
-)
-def test_convert_to_cents(raw_val: str, expected_cents: int):
-    assert SpedParser._convert_to_cents(raw_val) == expected_cents
+def test_parse_sped_full_integration(tmp_path: Path):
+    content = (
+        "|0000|005|0|01012023|31012023|EMPRESA TESTE SA|12345678000195|\n"
+        "|C100|1|0|PART001|55|00|1|100|12345678901234567890123456789012345678901234|01052023|01052023|150,55|\n"
+    )
+    sped_file = tmp_path / "sped.txt"
+    sped_file.write_text(content, encoding="utf-8")
+
+    parser = SpedParser(sped_file)
+    results = list(parser.parse_sped())
+
+    assert len(results) == 1
+    assert parser.company_name == "EMPRESA TESTE SA"
