@@ -31,12 +31,14 @@ class SintegraParser(FiscalDocumentBaseModelParser):
             return None
 
         raw_value = line_50[56:69].strip()
+        raw_doc_number = line_50[42:48].strip()
 
         return {
             "emission_date": line_50[30:38].strip(),
             "operation_type_code": line_50[55:56],
             "total_value": int(raw_value) if raw_value.isdigit() else 0,
             "document_status_code": line_50[126:127],
+            "document_number": int(raw_doc_number) if raw_doc_number.isdigit() else None,
         }
 
     def _parse_record_61(self, line_61: str) -> Optional[dict]:
@@ -44,10 +46,12 @@ class SintegraParser(FiscalDocumentBaseModelParser):
             return None
 
         raw_value = line_61[57:70].strip()
+        raw_start_num = line_61[38:44].strip()
 
         return {
             "emission_date": line_61[30:38].strip(),
             "total_value": int(raw_value) if raw_value.isdigit() else 0,
+            "document_number": int(raw_start_num) if raw_start_num.isdigit() else None,
         }
 
     def parse_sintegra(self) -> Generator[tuple, None, None]:
@@ -74,6 +78,7 @@ class SintegraParser(FiscalDocumentBaseModelParser):
                         "emission_date": self._format_date(parsed_50.get("emission_date")),
                         "document_status_code": parsed_50.get("document_status_code"),
                         "operation_type_code": parsed_50.get("operation_type_code"),
+                        "document_number": parsed_50.get("document_number"),
                         "model_code": "55",
                     }
 
@@ -85,10 +90,11 @@ class SintegraParser(FiscalDocumentBaseModelParser):
                         "emission_date": self._format_date(parsed_61.get("emission_date")),
                         "document_status_code": "N",
                         "operation_type_code": "T",
+                        "document_number": parsed_61.get("document_number"),
                         "model_code": "65",
                     }
 
-            if not document_data or any(value is None for value in document_data.values()):
+            if not document_data or any(value is None for value in [document_data.get("total_value"), document_data.get("emission_date")]):
                 continue
 
             sintegra_document = SintegraModel(
