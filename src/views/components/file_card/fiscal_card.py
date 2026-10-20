@@ -42,9 +42,10 @@ class FiscalFileSelectionCard(BaseSelectionCard):
         self.add_paths([path])
 
     def _reset_grid(self):
-        for r in range(3):
+        for r in range(2):
             self.items_container.grid_rowconfigure(r, weight=0, uniform="")
-        self.items_container.grid_columnconfigure(0, weight=0, uniform="")
+        for c in range(2):
+            self.items_container.grid_columnconfigure(c, weight=0, uniform="")
 
     def _render_items(self):
         for w in self.items_container.winfo_children():
@@ -57,9 +58,9 @@ class FiscalFileSelectionCard(BaseSelectionCard):
             self._render_empty_state()
             return
 
-        for i in range(num_items):
-            self.items_container.grid_rowconfigure(i, weight=1, uniform="fiscal_row")
-        self.items_container.grid_columnconfigure(0, weight=1)
+        self.items_container.grid_rowconfigure(0, weight=1)
+        for c in range(num_items):
+            self.items_container.grid_columnconfigure(c, weight=1, uniform="fiscal_col")
 
         for idx, path in enumerate(self.selected_paths):
             item_frame = ctk.CTkFrame(
@@ -69,31 +70,31 @@ class FiscalFileSelectionCard(BaseSelectionCard):
                 border_width=1,
                 corner_radius=8
             )
-            item_frame.grid(row=idx, column=0, sticky="nsew", pady=3)
+            item_frame.grid(row=0, column=idx, padx=3, pady=3, sticky="nsew")
             self._setup_drag_and_drop(item_frame)
 
             lbl_icon = ctk.CTkLabel(
                 item_frame, text="📄", font=ctk.CTkFont(size=13), text_color="#2563EB"
             )
-            lbl_icon.pack(side="left", padx=(12, 8))
-
-            file_display = path.name
-            if len(file_display) > 50:
-                file_display = file_display[:25] + "..." + file_display[-22:]
-
-            lbl_path = ctk.CTkLabel(
-                item_frame,
-                text=file_display,
-                font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
-                text_color="#1E40AF",
-                anchor="w"
-            )
-            lbl_path.pack(side="left", fill="x", expand=True, padx=4)
+            lbl_icon.pack(side="left", padx=(8, 4))
 
             btn_remove = HoverRemoveButton(
                 item_frame, command=lambda p=path: self.remove_path(p)
             )
-            btn_remove.pack(side="right", padx=10)
+            btn_remove.pack(side="right", padx=(4, 6))
+
+            file_display = path.name
+            if len(file_display) > 22:
+                file_display = file_display[:10] + "..." + file_display[-9:]
+
+            lbl_path = ctk.CTkLabel(
+                item_frame,
+                text=file_display,
+                font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+                text_color="#1E40AF",
+                anchor="w"
+            )
+            lbl_path.pack(side="left", fill="x", expand=True, padx=2)
 
     def _on_add_clicked(self):
         max_allowed = 2 if self.is_sped else 1

@@ -31,7 +31,7 @@ class ResultsTableFrame(ctk.CTkFrame):
         self.lbl_title = ctk.CTkLabel(
             self.header_container,
             text="PRÉVIA DO RELATÓRIO GERADO",
-            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
             text_color="#64748B",
             anchor="w"
         )
@@ -40,7 +40,7 @@ class ResultsTableFrame(ctk.CTkFrame):
         self.btn_export_excel = ctk.CTkButton(
             self.header_container,
             text="📊 Exportar para Excel",
-            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
             fg_color="#10B981",
             hover_color="#059669",
             text_color="#FFFFFF",
@@ -63,13 +63,13 @@ class ResultsTableFrame(ctk.CTkFrame):
             foreground="#0F172A",
             rowheight=26,
             fieldbackground="#FFFFFF",
-            font=("Inter", 9)
+            font=("Segoe UI", 9)
         )
         style.configure(
             "Treeview.Heading",
             background="#F8FAFC",
             foreground="#475569",
-            font=("Inter", 9, "bold"),
+            font=("Segoe UI", 9, "bold"),
             relief="flat"
         )
         style.map("Treeview", background=[("selected", "#CBD5E1")], foreground=[("selected", "#0F172A")])
@@ -150,7 +150,6 @@ class ResultsTableFrame(ctk.CTkFrame):
             self.tree.insert("", "end", values=formatted_row, tags=row_tag)
 
     def _on_export_excel_clicked(self):
-        """Chama a rotina de exportação via callback no app.py."""
         if self.export_excel_callback and callable(self.export_excel_callback):
             self.export_excel_callback(self.df_results)
 

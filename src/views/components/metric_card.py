@@ -21,7 +21,7 @@ class MetricCard(ctk.CTkFrame):
         self.lbl_title = ctk.CTkLabel(
             self,
             textvariable=self.title_var,
-            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
             text_color="#64748B",
             anchor="w"
         )
@@ -34,7 +34,7 @@ class MetricCard(ctk.CTkFrame):
         self.lbl_qty_title = ctk.CTkLabel(
             self.values_container,
             text="QUANTIDADE",
-            font=ctk.CTkFont(family="Inter", size=9, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
             text_color="#94A3B8",
             anchor="w"
         )
@@ -43,7 +43,7 @@ class MetricCard(ctk.CTkFrame):
         self.lbl_qty_val = ctk.CTkLabel(
             self.values_container,
             textvariable=self.qty_var,
-            font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
             text_color="#0F172A",
             anchor="w"
         )
@@ -52,7 +52,7 @@ class MetricCard(ctk.CTkFrame):
         self.lbl_val_title = ctk.CTkLabel(
             self.values_container,
             text="VALOR TOTAL",
-            font=ctk.CTkFont(family="Inter", size=9, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
             text_color="#94A3B8",
             anchor="w"
         )
@@ -61,7 +61,7 @@ class MetricCard(ctk.CTkFrame):
         self.lbl_val_val = ctk.CTkLabel(
             self.values_container,
             textvariable=self.val_var,
-            font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
             text_color="#0F172A",
             anchor="w"
         )
@@ -92,7 +92,6 @@ class MetricCard(ctk.CTkFrame):
 
 
 class MetricsGridFrame(ctk.CTkFrame):
-    """Container dos 2 cartões de métricas com linha e conector visual (✓ ou ✕)."""
 
     def __init__(self, master, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
@@ -141,17 +140,21 @@ class MetricsGridFrame(ctk.CTkFrame):
     def _draw_connection(self):
         self.canvas.delete("all")
 
-        if not self.raw_metrics:
+        self.update_idletasks()
+
+        xml_data = self.raw_metrics.get("xmls", {"qty": 0, "val": 0}) if self.raw_metrics else {"qty": 0, "val": 0}
+        fiscal_data = self.raw_metrics.get("fiscal_archives", {"qty": 0, "val": 0}) if self.raw_metrics else {"qty": 0, "val": 0}
+
+        xml_qty = xml_data.get("qty", 0)
+        xml_val = xml_data.get("val", 0)
+        fiscal_qty = fiscal_data.get("qty", 0)
+        fiscal_val = fiscal_data.get("val", 0)
+
+        has_data = (xml_qty > 0 or fiscal_qty > 0)
+        is_match = (xml_val == fiscal_val and has_data)
+
+        if not has_data:
             return
-
-        xml_data = self.raw_metrics.get("xmls", {"qty": 0, "val": 0})
-        fiscal_data = self.raw_metrics.get("fiscal_archives", {"qty": 0, "val": 0})
-
-        is_match = (
-            xml_data.get("qty", 0) == fiscal_data.get("qty", 0) and
-            xml_data.get("val", 0) == fiscal_data.get("val", 0) and
-            xml_data.get("qty", 0) > 0
-        )
 
         x1 = self.card_xml.winfo_x() + self.card_xml.winfo_width()
         y1 = self.card_xml.winfo_y() + (self.card_xml.winfo_height() // 2)
@@ -159,29 +162,33 @@ class MetricsGridFrame(ctk.CTkFrame):
         x2 = self.card_fiscal.winfo_x()
         y2 = self.card_fiscal.winfo_y() + (self.card_fiscal.winfo_height() // 2)
 
-        if x1 <= 0 or x2 <= 0:
+        if x1 <= 0 or x2 <= 0 or x1 >= x2:
             return
 
         color = "#10B981" if is_match else "#EF4444"
-        icon_text = "✓" if is_match else "✕"
 
         self.canvas.create_line(x1, y1, x2, y2, fill=color, width=3, capstyle="round")
 
-        mid_x = (x1 + x2) / 2
-        mid_y = (y1 + y2) / 2
-        radius = 12
+        mid_x = round((x1 + x2) / 2)
+        mid_y = round((y1 + y2) / 2)
+        radius = 14
 
         self.canvas.create_oval(
             mid_x - radius, mid_y - radius,
             mid_x + radius, mid_y + radius,
-            fill=color, outline="#FFFFFF", width=2
+            fill=color, outline=color, width=1
         )
 
-        self.canvas.create_text(
-            mid_x, mid_y,
-            text=icon_text, fill="#FFFFFF",
-            font=("Inter", 11, "bold")
-        )
+        if is_match:
+            points = [
+                mid_x - 5, mid_y,
+                mid_x - 1, mid_y + 4,
+                mid_x + 6, mid_y - 4
+            ]
+            self.canvas.create_line(points, fill="#FFFFFF", width=2.5, capstyle="round", joinstyle="round")
+        else:
+            self.canvas.create_line(mid_x - 4, mid_y - 4, mid_x + 4, mid_y + 4, fill="#FFFFFF", width=2.5, capstyle="round")
+            self.canvas.create_line(mid_x + 4, mid_y - 4, mid_x - 4, mid_y + 4, fill="#FFFFFF", width=2.5, capstyle="round")
 
     def set_mode(self, is_sped: bool):
         fiscal_title = "Arquivo Fiscal (SPED)" if is_sped else "Arquivo Fiscal (Sintegra)"

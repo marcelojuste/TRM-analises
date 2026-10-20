@@ -26,8 +26,8 @@ ctk.set_appearance_mode("Light")
 
 class MainWindow(ctk.CTk):
     COLOR_PALETTES = {
-        "SPED": {"primary": "#2563EB", "primary_hover": "#1D4ED8"},
-        "SINTEGRA": {"primary": "#EA580C", "primary_hover": "#C2410C"}
+        "SPED": {"primary": "#0F172A", "primary_hover": "#1E293B"},
+        "SINTEGRA": {"primary": "#0F172A", "primary_hover": "#1E293B"}
     }
 
     def __init__(self):
@@ -105,7 +105,7 @@ class MainWindow(ctk.CTk):
         self.btn_execute = ctk.CTkButton(
             self.footer_frame,
             text="▶   Executar Auditoria",
-            font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
             text_color="#FFFFFF",
             corner_radius=8,
             height=44,
@@ -115,7 +115,7 @@ class MainWindow(ctk.CTk):
         self.btn_cancel = ctk.CTkButton(
             self.footer_frame,
             text="🛑   Cancelar Operação",
-            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
             fg_color="#EF4444",
             hover_color="#DC2626",
             text_color="#FFFFFF",
@@ -127,7 +127,7 @@ class MainWindow(ctk.CTk):
         self.btn_reset = ctk.CTkButton(
             self.footer_frame,
             text="🔄   Reiniciar Operação",
-            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
             fg_color="#EF4444",
             hover_color="#DC2626",
             text_color="#FFFFFF",
@@ -208,11 +208,19 @@ class MainWindow(ctk.CTk):
 
         self._update_footer_layout("RUNNING")
 
-        fiscal_1 = self.app_state.fiscal_paths[0] if len(self.app_state.fiscal_paths) > 0 else None
-        fiscal_2 = self.app_state.fiscal_paths[1] if len(self.app_state.fiscal_paths) > 1 else None
+        fiscal_paths = self.app_state.fiscal_paths
 
-        xml_1 = self.app_state.xml_paths[0] if len(self.app_state.xml_paths) > 0 else None
-        xml_2 = self.app_state.xml_paths[1] if len(self.app_state.xml_paths) > 1 else None
+        fiscal_1 = fiscal_paths[0] if len(fiscal_paths) > 0 else None
+
+        fiscal_2 = None
+        if len(fiscal_paths) > 1 and fiscal_paths[1] != fiscal_1:
+            fiscal_2 = fiscal_paths[1]
+
+        xml_paths = self.app_state.xml_paths
+        xml_1 = xml_paths[0] if len(xml_paths) > 0 else None
+        xml_2 = None
+        if len(xml_paths) > 1 and xml_paths[1] != xml_1:
+            xml_2 = xml_paths[1]
 
         def worker():
             try:

@@ -56,25 +56,25 @@ class XMLSelectionCard(BaseSelectionCard):
                 lbl_icon = ctk.CTkLabel(
                     item_frame, text="📁", font=ctk.CTkFont(size=13), text_color="#2563EB"
                 )
-                lbl_icon.pack(side="left", padx=(12, 8))
-
-                folder_name = path.name
-                if len(folder_name) > 40:
-                    folder_name = folder_name[:18] + "..." + folder_name[-18:]
-
-                lbl_name = ctk.CTkLabel(
-                    item_frame,
-                    text=folder_name,
-                    font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
-                    text_color="#1E40AF",
-                    anchor="w"
-                )
-                lbl_name.pack(side="left", fill="x", expand=True, padx=4)
+                lbl_icon.pack(side="left", padx=(8, 4))
 
                 btn_remove = HoverRemoveButton(
                     item_frame, command=lambda p=path: self.remove_path(p)
                 )
-                btn_remove.pack(side="right", padx=10)
+                btn_remove.pack(side="right", padx=(4, 6))
+
+                folder_name = path.name
+                if len(folder_name) > 22:
+                    folder_name = folder_name[:10] + "..." + folder_name[-9:]
+
+                lbl_name = ctk.CTkLabel(
+                    item_frame,
+                    text=folder_name,
+                    font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+                    text_color="#1E40AF",
+                    anchor="w"
+                )
+                lbl_name.pack(side="left", fill="x", expand=True, padx=2)
 
         else:
             self.items_container.grid_rowconfigure((0, 1), weight=1, uniform="xml_row")

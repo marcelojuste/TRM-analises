@@ -19,7 +19,7 @@ class HeaderFrame(ctk.CTkFrame):
             self.logo_img = ctk.CTkImage(
                 light_image=Image.open(logo_path),
                 dark_image=Image.open(logo_path),
-                size=(50, 50),
+                size=(48, 48),
             )
             self.logo_label = ctk.CTkLabel(
                 self.left_container, text="", image=self.logo_img
@@ -34,7 +34,7 @@ class HeaderFrame(ctk.CTkFrame):
         self.lbl_title = ctk.CTkLabel(
             self.title_container,
             text="TRM Análises",
-            font=ctk.CTkFont(family="Inter", size=22, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
             text_color="#0F172A",
             height=26,
         )
@@ -43,7 +43,7 @@ class HeaderFrame(ctk.CTkFrame):
         self.lbl_subtitle = ctk.CTkLabel(
             self.title_container,
             text="AUDITORIA FISCAL E ANÁLISE DE DOCUMENTOS",
-            font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
             text_color="#2563EB",
             height=14,
         )
@@ -55,13 +55,12 @@ class HeaderFrame(ctk.CTkFrame):
         self.lbl_system = ctk.CTkLabel(
             self.right_container,
             text="TRM Sistemas",
-            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
             text_color="#64748B",
         )
         self.lbl_system.pack(side="right", padx=(12, 0), anchor="center")
 
     def update_mode_theme(self, is_sped: bool):
-        """Atualiza a cor do subtítulo conforme o modo fiscal ativo."""
         if is_sped:
             self.lbl_subtitle.configure(text_color="#2563EB")
         else:
