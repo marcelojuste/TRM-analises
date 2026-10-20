@@ -74,15 +74,19 @@ class AuditService:
             raise InterruptedError("Operação cancelada pelo utilizador.")
 
     def _process_sped_files(self) -> None:
-        for sped_path in (self.fiscal_archive_path, self.fiscal_archive_path_2):
-            if sped_path and sped_path.exists():
-                with SpedParser(sped_path) as parser:
-                    sped_records = list(parser.parse_sped())
-                    if parser.enterprise:
-                        self.enterprise = parser.enterprise
-                    if sped_records:
-                        self._check_cancellation()
-                        self.repository.add_fiscal_archive(sped_records)
+        unique_paths = {}
+        for path in (self.fiscal_archive_path, self.fiscal_archive_path_2):
+            if path and path.exists():
+                unique_paths[path.resolve()] = path
+
+        for sped_path in unique_paths.values():
+            with SpedParser(sped_path) as parser:
+                sped_records = list(parser.parse_sped())
+                if parser.enterprise:
+                    self.enterprise = parser.enterprise
+                if sped_records:
+                    self._check_cancellation()
+                    self.repository.add_fiscal_archive(sped_records)
 
     def _process_sintegra_files(self) -> None:
         sintegra_path = self.fiscal_archive_path
@@ -181,36 +185,3 @@ class AuditService:
             "metrics": self.metrics,
             "audit_results": audit_results_df,
         }
-
-    def prepare_data_frames(self) -> tuple[pd.DataFrame, pd.DataFrame]:
-        cols_xml = [
-            "cnpj_issuer",
-            "total_value",
-            "emission_date",
-            "operation_type",
-            "document_status",
-            "nfe_model",
-            "document_number",
-            "access_key",
-        ]
-
-        df_xml = pd.DataFrame(self.xml_data_hub, columns=cols_xml)
-
-        if self.is_sped:
-            cols_fiscal = cols_xml + ["sped_type"]
-        else:
-            cols_fiscal = [
-                "cnpj_issuer",
-                "total_value",
-                "emission_date",
-                "operation_type",
-                "document_status",
-                "nfe_model",
-                "document_number",
-            ]
-
-        df_fiscal = pd.DataFrame(self.fiscal_archive_data_hub, columns=cols_fiscal)
-
-        logger.info(f"DataFrame df_fiscal ({self.fiscal_archive_type}) montado com {len(df_fiscal)} linhas.")
-
-        return df_xml, df_fiscal

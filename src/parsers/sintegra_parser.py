@@ -30,19 +30,10 @@ class SintegraParser(FiscalDocumentBaseModelParser):
         if len(line_50) < 126 or not line_50.startswith(("50", "51")):
             return None
 
-        raw_doc_number = line_50[45:51].strip()
-        cfop = line_50[51:55].strip()
-        emitente_code = line_50[55:56].strip()
-        raw_value = line_50[56:69].strip()
+        document_number = line_50[45:51].strip()
+        operation_type_code = line_50[55:56].strip()
         status_code = line_50[125:126].strip()
-
-        if emitente_code:
-            operation_type_code = emitente_code
-        elif cfop and len(cfop) > 0:
-            operation_type_code = "P" if cfop[0] in ("5", "6", "7") else "T"
-        else:
-            operation_type_code = "P"
-
+        raw_value = line_50[56:69].strip()
         total_value_cents = int(raw_value) if raw_value.isdigit() else 0
 
         return {
@@ -50,7 +41,7 @@ class SintegraParser(FiscalDocumentBaseModelParser):
             "operation_type_code": operation_type_code,
             "total_value": total_value_cents,
             "document_status_code": status_code,
-            "document_number": int(raw_doc_number) if raw_doc_number.isdigit() else None,
+            "document_number": int(document_number) if document_number.isdigit() else None,
         }
 
     def _parse_record_61(self, line_61: str) -> Optional[dict]:
@@ -85,13 +76,14 @@ class SintegraParser(FiscalDocumentBaseModelParser):
             if line.startswith(("50", "51")):
                 parsed_50 = self._parse_record_50(line)
                 if parsed_50:
+                    model_code = line[40:42].strip() if len(line) >= 42 else "55"
                     document_data = {
                         "total_value": parsed_50.get("total_value"),
                         "emission_date": self._format_date(parsed_50.get("emission_date")),
                         "document_status_code": parsed_50.get("document_status_code"),
                         "operation_type_code": parsed_50.get("operation_type_code"),
                         "document_number": parsed_50.get("document_number"),
-                        "model_code": "55",
+                        "model_code": model_code if model_code else "55",
                     }
 
             elif line.startswith("61"):
@@ -106,7 +98,16 @@ class SintegraParser(FiscalDocumentBaseModelParser):
                         "model_code": "65",
                     }
 
-            if not document_data or any(value is None for value in [document_data.get("total_value"), document_data.get("emission_date")]):
+            if not document_data:
+                continue
+
+            if document_data.get("operation_type_code") in ("T", "0"):
+                continue
+
+            if document_data.get("document_status_code") in ("S", "X"):
+                continue
+
+            if any(value is None for value in [document_data.get("total_value"), document_data.get("emission_date")]):
                 continue
 
             sintegra_document = SintegraModel(

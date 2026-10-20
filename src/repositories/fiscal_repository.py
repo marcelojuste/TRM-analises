@@ -1,6 +1,5 @@
 import duckdb
 import pandas as pd
-from src.path_manager import PATHS
 
 
 class FiscalRepository:
@@ -47,6 +46,18 @@ class FiscalRepository:
 
         df_fiscal = pd.DataFrame(self.fiscal_archive_data_hub, columns=cols_fiscal)
 
+        if not df_fiscal.empty:
+            if self.is_sped and "access_key" in df_fiscal.columns:
+                df_fiscal = df_fiscal.drop_duplicates(subset=["access_key"], keep="first")
+            else:
+                df_fiscal = df_fiscal.drop_duplicates(
+                    subset=["cnpj_issuer", "document_number", "nfe_model", "total_value", "emission_date"],
+                    keep="first"
+                )
+
+        if not df_xml.empty:
+            df_xml = df_xml.drop_duplicates(subset=["access_key"] if "access_key" in df_xml.columns else cols_xml, keep="first")
+
         return df_xml, df_fiscal
 
     def calculate_metrics(self, df_xml: pd.DataFrame, df_fiscal: pd.DataFrame) -> dict:
@@ -76,7 +87,7 @@ class FiscalRepository:
         for _, row in metrics_df.iterrows():
             metrics[row["type"]] = {
                 "qty": int(row["qty"]),
-                "val": int(row["val"])
+                "val": float(row["val"])
             }
 
         return metrics
