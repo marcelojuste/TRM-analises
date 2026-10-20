@@ -1,165 +1,126 @@
-# 📋 TRM Análises — Auditoria Fiscal
+# TRM Análises - Auditor Fiscal
 
-Ferramenta modular de **alta performance e baixo consumo de memória** para extração, consolidação e auditoria cruzada de documentos fiscais eletrônicos (**NF-e, NFC-e e arquivos SPED Fiscal / EFD Contribuições**), com interface gráfica nativa em **CustomTkinter** e exportação de relatórios analíticos formatados em **Excel**.
-
-O projeto foi projetado para processar grandes volumes de dados fiscais em ambientes com recursos computacionais limitados (incluindo máquinas com **Windows 7 64-bit e apenas 4 GB de RAM**).
+O **TRM Análises - Auditor Fiscal** é uma aplicação desktop de alta performance em Python desenvolvida para auditoria, cruzamento e conciliação de documentos fiscais. O sistema realiza o confronto entre arquivos XML (NF-e/NFC-e) e livros fiscais digitais (**SPED ICMS/IPI**, **EFD Contribuições** e **Sintegra**), utilizando **DuckDB** para consultas analíticas em memória e **Pandas** para manipulação estruturada de dados.
 
 ---
 
-## 💡 Princípios de Arquitetura & Desempenho
+## 🚀 Funcionalidades Principais
 
-* **Processamento Out-of-Core & Streaming:** Leitura progressiva de arquivos XML via `xml.etree.ElementTree.iterparse`, evitando carregar arquivos inteiros em memória.
-* **Execução Paralela:** Leitura paralela de lotes de arquivos XML através de `concurrent.futures.ProcessPoolExecutor`.
-* **Motor Analítico OLAP Descartável:** Persistência analítica ultra-rápida via **DuckDB**, configurado com limite de memória de **1 GB** e tempo de vida descartável (*Disposable Database* com limpeza de arquivos na pasta `temp_files` ao encerrar).
-* **Precisão Financeira:** Todos os valores monetários são processados e armazenados em **centavos como números inteiros (`BIGINT`/`int`)**, eliminando erros de arredondamento de Ponto Flutuante (`float`).
-* **Estruturas Otimizadas e Leves:** Manipulação direta de tuplas e estruturas de dados enxutas sem o overhead de abstrações pesadas.
-* **Interface Gráfica Leve (GUI):** Interface moderna desenvolvida em `CustomTkinter` localizada no diretório `views`, com suporte a temas, seleção de arquivos, visualização de métricas e prévia em tabela nativa (`ttk.Treeview`).
+* **Processamento Multiformato:**
+  * **Documentos XML:** Leitura e validação de NF-e (Modelo 55) e NFC-e (Modelo 65), com filtragem automática de ambientes de produção, validação de chave de acesso (44 dígitos) e conversão de valores para centavos (evitando erros de ponto flutuante).
+  * **Arquivos SPED:** Suporte a arquivos **EFD ICMS/IPI** e **EFD Contribuições**, com identificação automática da estrutura e extração dos registros C100.
+  * **Arquivos Sintegra:** Leitura de registros no formato de largura fixa (Registros 10, 50, 51 e 61) com mapeamento de CFOP e normalização de status do documento.
+
+* **Performance & Motor de Análise:**
+  * **DuckDB Integrado:** Execução de queries SQL de conciliação diretamente em memória, garantindo alta velocidade no cruzamento de dados.
+  * **Processamento Concorrente:** Leitura multithreaded de arquivos XML via `ThreadPoolExecutor`.
+  * **Priorização de Processo:** Ajuste automático da prioridade de execução do sistema (Win32 / OS Nice) para evitar o travamento da máquina durante auditorias volumosas.
+
+* **Interface Gráfica Modesta e Moderna:**
+  * Desenvolvida com `CustomTkinter` e suporte a *Drag & Drop* (`TkinterDnD2`).
+  * Alternância dinâmica entre os modos de operação (SPED x Sintegra).
+  * Visualização gráfica de métricas de totais e divergências.
+  * Tabela de prévia de resultados com exportação direta para relatórios formatados em **Excel**.
 
 ---
 
-## 🏗️ Estrutura do Projeto
+## 📁 Estrutura do Projeto
 
-```text
+```
 TRM-analises/
-│
-├── .github/                 # Workflows e automações CI/CD
-├── .vscode/                 # Configurações do ambiente de desenvolvimento
-│
+├── .github/
+│   └── workflows/
+│       └── tests.yml            # Pipeline de Integração Contínua (CI)
 ├── src/
-│   ├── database/            # Gerenciamento de conexão DuckDB e scripts SQL
-│   │   ├── queries/         # DDL (schema.sql) e queries analíticas (audit.sql)
-│   │   └── database.py      # Context Manager (DisposableAuditDatabase)
-│   │
-│   ├── models/              # Modelos e definições de estruturas de documentos
-│   │   ├── fiscal_document.py
-│   │   └── sped_document.py
-│   │
-│   ├── outputs/             # Diretório de destino dos relatórios gerados (.xlsx)
-│   │
-│   ├── parsers/             # Parsers streaming para extração de XML e SPED
-│   │   ├── sped_parser.py
-│   │   └── xml_parser.py
-│   │
-│   ├── repositories/        # Camada de persistência e gravação em lote
-│   │   └── fiscal_repository.py
-│   │
-│   ├── services/            # Serviços de orquestração e exportação
-│   │   ├── audit_service.py
-│   │   └── excel_exporter.py
-│   │
-│   ├── temp_files/          # Arquivos temporários e banco DuckDB descartável
-│   │
-│   ├── views/               # Interface Gráfica (GUI) em CustomTkinter
-│   │   ├── assets/          # Ícones, imagens e recursos visuais
-│   │   ├── components/      # Componentes de UI (Header, FileCard, MetricCard, ResultTable)
-│   │   └── app.py           # Janela principal da aplicação
-│   │
-│   ├── app_paths.py         # Mapeamento e resolução de caminhos imutáveis (AppPaths)
-│   └── main.py              # Ponto de entrada do sistema
-│
-├── tests/                   # Suíte de testes unitários automatizados (pytest)
-├── .gitignore
-├── conftest.py              # Configurações globais e fixtures do pytest
-├── pyproject.toml           # Configurações do projeto e ferramentas de build
-├── Readme.md                # Documentação técnica do sistema
-└── requirements.txt         # Dependências do projeto Python
+│   ├── models/                  # Modelos de dados
+│   │   ├── base_model.py        # Modelo base de documentos fiscais
+│   │   ├── sintegra_model.py    # Modelo de dados do Sintegra
+│   │   ├── sped_model.py        # Modelo de dados do SPED
+│   │   └── xml_model.py         # Modelo de dados de XMLs (NF-e/NFC-e)
+│   ├── outputs/                 # Diretório padrão para relatórios exportados
+│   ├── parsers/                 # Leitores e interpretadores de arquivos
+│   │   ├── base_parser.py       # Leitor base com detecção de encoding (utf-8, latin-1)
+│   │   ├── sintegra_parser.py   # Parser de arquivos Sintegra
+│   │   ├── sped_parser.py       # Parser de arquivos SPED
+│   │   └── xml_parser.py        # Parser de arquivos XML
+│   ├── repositories/            # Armazenamento em memória e tratamento
+│   │   ├── scripts/             # Scripts SQL de auditoria (DuckDB)
+│   │   └── fiscal_repository.py # Consolidação de DataFrames e desduplicação
+│   ├── services/                # Regras de negócio e exportadores
+│   │   ├── exporters/           # Módulos de exportação (Excel)
+│   │   └── audit_service.py     # Pipeline principal de execução da auditoria
+│   ├── views/                   # Interface gráfica (GUI)
+│   │   ├── assets/              # Ícones e imagens
+│   │   ├── components/          # Componentes reutilizáveis da interface
+│   │   ├── app_state.py         # Gerenciamento de estado da aplicação
+│   │   └── app.py               # Janela principal (MainWindow)
+│   ├── main.py                  # Ponto de entrada do sistema
+│   └── path_manager.py          # Gerenciamento centralizado de caminhos da aplicação
+├── tests/                       # Testes automatizados (pytest)
+├── conftest.py                  # Configurações de testes
+├── main.py                      # Atalho/Ponto de entrada raiz
+└── requirements.txt             # Dependências do projeto
 ```
 
 ---
 
-## ⚡ Fluxo de Auditoria e Processamento
+## 🛠️ Requisitos e Tecnologias
 
-```text
-┌─────────────────────────┐
-│ NF-e / NFC-e / SPED     │
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│ Parsers (Streaming XML) │
-│  + ProcessPoolExecutor  │
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│ Tuplas de Dados         │
-│ (Chave, CNPJ, Centavos) │
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│ FiscalRepository        │
-│ (Buffer + executemany)  │
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│ DuckDB (Disposable)     │
-│ (Audit Query / OLAP)    │
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│ Relatório Excel         │
-│ + Prévia na GUI (Views) │
-└─────────────────────────┘
-```
+* **Linguagem:** Python 3.10+
+* **Principais Bibliotecas:**
+  * `customtkinter` — Interface gráfica moderna.
+  * `pandas` — Estruturação e manipulação de tabelas de dados.
+  * `duckdb` — Banco de dados analítico OLAP em memória.
+  * `Pillow (PIL)` — Manipulação de imagens e ícones na interface.
+  * `openpyxl` — Geração e formatação de planilhas Excel.
+  * `tkinterdnd2` *(opcional)* — Suporte a arrastar e soltar arquivos na interface.
 
 ---
 
-## 🖥️ Requisitos do Sistema
+## 🔧 Configuração e Instalação
 
-* **Sistema Operacional:** Windows 7 SP1 (64-bit) ou superior / Linux / macOS.
-* **Python:** 3.10 ou superior.
-* **Memória RAM:** Mínimo de 4 GB (Uso da aplicação mantido abaixo de **1 GB**).
+1. **Clone o repositório:**
+   ```bash
+   git clone https://github.com/seu-usuario/TRM-analises.git
+   cd TRM-analises
+   ```
 
----
+2. **Crie e ative um ambiente virtual:**
+   * **Windows:**
+     ```bash
+     python -m venv venv
+     .\venv\Scripts\activate
+     ```
+   * **Linux/macOS:**
+     ```bash
+     python3 -m venv venv
+     source venv/bin/activate
+     ```
 
-## 🚀 Instalação e Execução
+3. **Instale as dependências:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### 1. Clonar o repositório
-```bash
-git clone <URL_DO_REPOSITORIO>
-cd TRM-analises
-```
-
-### 2. Criar e ativar o ambiente virtual
-```bash
-python -m venv venv
-
-# Windows (Command Prompt / PowerShell)
-.\venv\Scripts\activate
-
-# Linux / macOS
-source venv/bin/activate
-```
-
-### 3. Instalar as dependências
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Executar a aplicação
-```bash
-python src/main.py
-```
+4. **Execute a aplicação:**
+   ```bash
+   python main.py
+   ```
 
 ---
 
-## 🧪 Suíte de Testes Automatizados
+## ⚙️ Fluxo de Funcionamento
 
-O projeto utiliza `pytest` para validação e testes isolados dos parsers, repositórios e serviços de auditoria:
-
-```bash
-# Executar todos os testes
-pytest
-
-# Executar testes com saída detalhada
-pytest -v
-```
+1. **Seleção de Modos e Arquivos:** O usuário seleciona o modo de auditoria (**SPED** ou **SINTEGRA**) na interface e informa os diretórios/arquivos correspondentes aos XMLs e livros fiscais.
+2. **Parsing e Normalização:**
+   * Os arquivos XML são lidos em paralelo.
+   * Os arquivos de texto (SPED/Sintegra) são lidos com tratamento automático de codificação de texto (`utf-8`, `latin-1`, `utf-8-sig`).
+3. **Desduplicação e Tratamento:** Os dados são inseridos no `FiscalRepository` e higienizados removendo duplicidades com base na Chave de Acesso ou na combinação de chave de negócio (CNPJ + Número do Documento + Modelo + Valor Total + Data de Emissão).
+4. **Cruzamento SQL:** O `AuditService` carrega as tabelas resultantes (`df_xml` e `df_fiscal`) no **DuckDB** e executa a query SQL de conciliação (`sped_audit_query.sql` ou `sintegra_audit_query.sql`).
+5. **Resultado e Exportação:** As métricas e inconsistências são exibidas em tela e podem ser exportadas para uma planilha Excel estruturada na pasta `outputs/`.
 
 ---
 
-## 📜 Licença
+## 🛡️ Licença
 
-Propriedade privada de **TRM Sistemas**. Todos os direitos reservados.
+Este projeto é um software proprietário desenvolvido para fluxos internos de análise e auditoria fiscal.
